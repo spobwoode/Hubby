@@ -25,7 +25,7 @@ cleanupList <- list()
 
 # set to 1 to have the programme print everything its doing to the console as well as the log.
 # set to 0 to quiet down
-verbose <- 1
+verbose <- 0
 
 
 
