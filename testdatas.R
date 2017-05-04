@@ -1,9 +1,9 @@
 # this is the filepath where i have been building all the tests
-currentPath <- getwd()
+currentPath <- 'C:/HiltonGuestShare/Hubby'
 # this is the filepath to the test data file
 testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
 # This is the directory the output file will be saved to
-outputPath <- paste(currentPath, '/output/', sep="")
+outputPath <- paste(currentPath, '//hiltonagg01/hiltonagg01data/Box Sync/HiltonHubSanityTests/', sep="")
 # The outpt filename will be constructed as {THIS FILENAME VALUE}_YYYY-MM-DD.csv, where YYYY_MM_DD is the run date
 outputFileName <- 'HiltonHubSanityTests'
 # This is the directory where the package will look for sql files if they are named the same as TestName and the column is empty for that test
