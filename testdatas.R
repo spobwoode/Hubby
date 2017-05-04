@@ -25,7 +25,7 @@ cleanupList <- list()
 
 # set to 1 to have the programme print everything its doing to the console as well as the log.
 # set to 0 to quiet down
-verbose <- 0
+verbose <- 1
 
 
 
@@ -364,19 +364,34 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
 	dataLocation <- rownames(availableDataFiles[rev(order(as.Date(availableDataFiles$mtime))),][1,])
 	
 
+
+	# cast HubEndRow to number (if its a text identifier this will be checked)
+	endRowNumber <- suppressWarnings(as.numeric(endRow))
+	headerRowNumber <- suppressWarnings(as.numeric(headerRow))
+
+	skipRows <- 1
 	
+	if(!is.na(headerRowNumber)) { 
+		skipRows <- headerRowNumber
+		if(!is.na(endRowNumber)) {
+			endRowNumber <- endRowNumber - headerRowNumber
+		}
+		headerRowNumber <- 1
+	}
+
+
 	removeHeaderRow <- TRUE
 
 	# get data file
 	if(grepl('\\.csv$',filename)) {
 
-	#read csv data file
-		data <- getCSVFile(dataLocation)
+		#read csv data file, chop off the top of the file if necesary
+		data <- getCSVFile(dataLocation,skip=skipRows)
 
 	} else if(grepl('\\.xlsx?$',filename)) {
 
 		# read excel data file
-		data <- suppressWarnings(getExcelFile(dataLocation))
+		data <- suppressWarnings(getExcelFile(dataLocation,skip=skipRows))
 		# the read_excel library automatically takes the header row out if its all lined up right
 		removeHeaderRow <- FALSE
 
@@ -385,10 +400,6 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
 
 
 
-
-	# cast HubEndRow to number (if its a text identifier this will be checked)
-	endRowNumber <- suppressWarnings(as.numeric(endRow))
-	headerRowNumber <- suppressWarnings(as.numeric(headerRow))
 
 	# endRow is a number
 	if(!is.na(endRowNumber)) {
