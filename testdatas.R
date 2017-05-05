@@ -674,7 +674,21 @@ testDatas <- function(
 		return( )
 	}
 	
-	# TODO: Error logging around these
+  	# Cast fields to the types we want them in
+  	# theres something weird with tibbles in newer versions of R so just ot be sure cast everything...
+  	comparisonMetric <- as.character(comparisonMetric)
+  	expectedDateFormats  <- as.character(expectedDateFormats)
+	SourceDataPath  <- as.character(SourceDataPath)
+	SourceDataFileName  <- as.character(SourceDataFileName)
+	SourceColumnsToInclude  <- as.character(SourceColumnsToInclude)
+	HubDataPath  <- as.character(HubDataPath)
+	HubDataFileName  <- as.character(HubDataFileName)
+	HubColumnsToInclude  <- as.character(HubColumnsToInclude)
+	SourceHeaderRow  <- as.character(SourceHeaderRow)
+	SourceEndRow  <- as.character(SourceEndRow)
+	HubHeaderRow  <- as.character(HubHeaderRow)
+	HubEndRow  <- as.character(HubEndRow)
+  
 	threshold <- as.numeric(threshold)
 	minimumThreshold <- as.numeric(minimumThreshold)
 	
@@ -823,7 +837,7 @@ formatIgnoredValues <- function(valueString) {
 	ignoredValues <- NA
 	
 	if(! is.na(valueString)) {
-		ignoredValues <- strsplit(valueString, ",") 
+		ignoredValues <- strsplit(as.character(valueString), ",") 
 		ignoredValues <-  do.call(rbind, ignoredValues)
 		
 		
