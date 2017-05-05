@@ -53,3 +53,4 @@ sql/*
 output/*
 SourceVHubDataTests.xlsx
 TestsToRun_bak.xlsx
+*.Rhistory
