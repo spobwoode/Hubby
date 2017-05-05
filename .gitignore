@@ -46,11 +46,11 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# ignore the programe run time folders
+# ignore the programme run time folders
 tmp/*
 log/*
 sql/*
 output/*
 SourceVHubDataTests.xlsx
 TestsToRun_bak.xlsx
-.Rhistory
+*.Rhistory
