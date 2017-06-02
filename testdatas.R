@@ -756,7 +756,7 @@ testDatas <- function(
 
 	
 	
-	# left join sourceData to hubData - i.e for all columns of hubData join values of sourceData or NA if it is not matched
+	# left join sourceData to hubData - i.e for all columns of sourceData join values of hubData or NA if it is not matched
 	sourceData <- hubData[sourceData, on=nonComparisonCols]
 	# clear the hubData out of memory
 	hubData <- NULL
