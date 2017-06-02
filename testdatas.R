@@ -756,7 +756,7 @@ testDatas <- function(
 
 	
 	
-	# left join sourceData to hubData - i.e for all columns of sourcedata join values of sqldata or NA if it is not matched
+	# left join sourceData to hubData - i.e for all columns of hubData join values of sourceData or NA if it is not matched
 	sourceData <- hubData[sourceData, on=nonComparisonCols]
 	# clear the hubData out of memory
 	hubData <- NULL
@@ -778,8 +778,8 @@ testDatas <- function(
 	sourceData$PercentageDiff <- (sourceData$ValueDiff/sourceData[[paste("i.",comparisonMetric,sep="")]] )*100
 	
 	# change column names to Hub Comparison Metric Value and Source Comparison Metric Value
-	colnames(sourceData)[which(colnames(sourceData) == comparisonMetric)] <- "Source Comparison Metric Value"
-	colnames(sourceData)[which(colnames(sourceData) == paste("i.",comparisonMetric,sep=""))] <- "Hub Comparison Metric Value"
+	colnames(sourceData)[which(colnames(sourceData) == comparisonMetric)] <- "Hub Comparison Metric Value"
+	colnames(sourceData)[which(colnames(sourceData) == paste("i.",comparisonMetric,sep=""))] <- "Source Comparison Metric Value"
 	
 	#KeyCol <- sourceData[,paste(.SD, collapse="|"), by=c(comparisonMetric)]
 	
