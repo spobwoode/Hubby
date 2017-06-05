@@ -453,7 +453,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
 
 		endRow <- endRow - headerRow
 		# read excel data file again so that dates are cast properly.
-		data <- suppressWarnings(getExcelFile(dataLocation, skip=headerRow, castDates=TRUE))
+		data <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE))
 
 	}
 	
