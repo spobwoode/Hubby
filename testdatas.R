@@ -894,7 +894,7 @@ runTests <- function() {
 	for(i in 1:lastRow) {
 	
 	
-		if(is.character(testList[i,1]) & testList[i,1] == 'Enabled') {
+		if(testList[i,1] == 'Enabled') {
 			
 			ignoredValues <- NA
 			
