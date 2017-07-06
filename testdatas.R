@@ -1,10 +1,10 @@
 # this is the filepath where i have been building all the tests
-currentPath <- 'C:/HiltonGuestShare/Hubby'
+currentPath <- 'C:/HiltonGuestShare/Hubby' # 'C:/Users/thomas.hamblin/Documents/Hubby' # 
 #currentPath <- getwd()
 # this is the filepath to the test data file
 testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
 # This is the directory the output file will be saved to
-outputPath <- '//hiltonagg01/hiltonagg01data/Box Sync/HiltonHubSanityTests/'
+outputPath <- '//hiltonagg01/hiltonagg01data/Box Sync/HiltonHubSanityTests/' # paste(currentPath, '/output/', sep="") # 
 # The outpt filename will be constructed as {THIS FILENAME VALUE}_YYYY-MM-DD.csv, where YYYY_MM_DD is the run date
 outputFileName <- 'HiltonHubSanityTests'
 # This is the directory where the package will look for sql files if they are named the same as TestName and the column is empty for that test
@@ -50,6 +50,8 @@ installPackages('readxl')
 installPackages('RCurl')
 # janitor for data cleaning funcitons
 installPackages("janitor")
+# janitor for data cleaning funcitons
+installPackages("stringr")
 
 
 
@@ -312,10 +314,11 @@ getFTPFileList <- function(
 
 getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE) {
   
+  skip <- ifelse(is.logical(skip) & ! skip,0, skip)
+
   # read excel data file
   # read it in once to get the number of columns (this is ridiculous there must be a better way)
-  data <- read_excel(filepath,col_names=TRUE,skip=skip)
-  
+  data <- read_excel(filepath,col_names=FALSE,skip=skip)
   
   # read it in again but set all the columns to text
   textRep <- rep("text",ncol(data))
@@ -324,7 +327,7 @@ getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE) 
     textRep[which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- 'date'
   }
   
-  data <- read_excel(filepath, col_types=textRep, na="", col_names=TRUE, skip=skip)
+  data <- read_excel(filepath, col_types=textRep, na="", col_names=FALSE, skip=skip)
   
   # if(any(sapply(data,function(x) inherits(x, 'POSIXt' )))) {
   #     data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- sapply(data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))], function(x) {as.character(x)})
@@ -344,10 +347,24 @@ getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE) 
 
 
 
-getCSVFile <- function(filepath, skip=0, header=FALSE) {
+getCSVFile <- function(filepath, skip=FALSE, header=FALSE) {
   
   #read csv data file
-  return( read.csv(filepath,stringsAsFactors=FALSE,header=header,skip=skip) )
+  #return( read.csv(filepath,stringsAsFactors=FALSE,header=header,skip=skip,fill=TRUE) )
+
+  #readlines
+  lines <- readLines(filepath,n=30)
+  maxColumns <- max(str_count(lines,","))
+
+  colnames <- c("V1")
+
+  if(maxColumns > 1) {
+    for(i in 1:maxColumns) {
+      colnames <- c(colnames, paste("V", i+1,sep=""))
+    }
+  }
+
+  return( read.csv(filepath,stringsAsFactors=FALSE,header=FALSE,skip=skip,fill=TRUE,col.names=colnames) )
   
 }
 
@@ -386,12 +403,18 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   
   headerValues <- suppressWarnings(as.logical(headerValues))
   
-  skipRows <- 1
+  skipRows <- FALSE
   
-  if(!is.na(headerRowNumber)) { 
-    skipRows <- headerRowNumber
+  rowBeforeHeader <- 0
+
+  # If the user passed a number - then the head row is in the row specified
+  # skip all rows prior to the header row (e.g row 3 specified then skip 2 rows (1 & 2)
+  # end orw number specified by user then needs to be 2 rows less as the final read data won't include 1 & 2.
+  if(!is.na(headerRowNumber) & headerRowNumber > 1 ) { 
+    rowBeforeHeader <- headerRowNumber - 1
+    skipRows <- rowBeforeHeader
     if(!is.na(endRowNumber)) {
-      endRowNumber <- endRowNumber - headerRowNumber
+      endRowNumber <- endRowNumber - rowBeforeHeader
     }
     headerRowNumber <- 1
   }
@@ -400,23 +423,21 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   
   # don't skip the header
   if(isTRUE(headerValues)) { 
-    skipRows <- skipRows -1
     removeHeaderRow <- FALSE
   }
-  
+
+
   # get data file
   if(grepl('\\.csv$',filename)) {
-    
+
     #read csv data file, chop off the top of the file if necesary
-    data <- getCSVFile(dataLocation,skip=skipRows,headerValues)
+    data <- getCSVFile(dataLocation,skip=skipRows,header=headerValues)
     
   } else if(grepl('\\.xlsx?$',filename)) {
     
     # read excel data file
     data <- suppressWarnings(getExcelFile(dataLocation,skip=skipRows,headerValues=headerValues))
     # the read_excel library automatically takes the header row out if its all lined up right
-    #removeHeaderRow <- FALSE
-    
   }
 
   
@@ -440,27 +461,32 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     }
   }
   
+  print(endRowNumber)
+  print(endRow)
   
   #take the top off the file up to the header row
   if(is.na(headerRowNumber)) {
     # headerRow is not a number
     if(!(headerRow %in% names(data))) {
       # pull the row number where the identifier appears
-      headerRowNumber <- which(data[,1] == headerRow)
-      if(length(headerRowNumber) == 0) {
+
+      rowBeforeHeader <- which(data[,1] == headerRow) - 1
+      if(length(rowBeforeHeader) == 0) {
         logToFile(programme,testName,"Error",paste(hubOrSource ,' Header Row identifier "', headerRow, '" is not present in column 1 of the data file. Check correct file/identifier has been used', sep=""))
         return(   )
       } else {
-        headerRow <- headerRowNumber
+        headerRow <- 1
+        endRow <- endRow - rowBeforeHeader
       }
     } else {
-      headerRow <- 0
+      rowBeforeHeader <- 0
+      headerRow <- 1
     }
   } else {
-    headerRow <- ifelse(headerRowNumber > 0, headerRowNumber -1, 0)
+    headerRow <- ifelse(headerRowNumber > 0, headerRowNumber, 0)
   }
-  
-  
+
+
   # validate header/endRow locations (dont want them the wrong way round)
   if(headerRow >= endRow) {
     logToFile(programme,testName,"Error",paste("Initialisation Error: ", hubOrSource ," endRow must be after headerRow",sep=""))
@@ -468,27 +494,20 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   }
 
  
-  
 
   if(grepl('\\.xlsx?$',filename)) {
-    
-    endRow <- endRow - (headerRow - 1)
 
-    if(!isTRUE(headerValues)) {
-    	skipRows <- headerRow
-    	headerRow <- 1
-    }
+  	skipRows <- rowBeforeHeader
 
     # read excel data file again so that dates are cast properly.
     data <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues))
     
+    #removeHeaderRow <- TRUE
   }
 
   # strip off excess rows
   # data may have multiple uneeded rows - so strip off any that aren't part of the test
   data <- data[headerRow:endRow,]
-  
-  
 
   # remove header line for CSV files
   if(removeHeaderRow) {
@@ -637,7 +656,6 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
     
   }
 
-
   if(is.null(data)) {
     # no datas returned
     return (  )
@@ -668,7 +686,14 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
 
   # check if any columns can be converted to dates
   data <- sapply(data, convertDates, formats=expectedDateFormats)
-  
+
+  print("")
+  print("Final data")
+  print("")
+  print(head(data))
+  print(tail(data))
+  print("")
+
   
   return( data )
 }
@@ -741,6 +766,9 @@ testDatas <- function(
   
   
   
+  # print("")
+  # print('-------------Source----------------')
+
   # Get source data
   sourceData <- getData(programme, testName, 'Source', SourceDataPath, SourceDataFileName, SourceColumnsToInclude, SourceHeaderRow, SourceEndRow, SourceHeaderValues, expectedDateFormats)
   
@@ -750,6 +778,8 @@ testDatas <- function(
   }
  
 
+  # print("")
+  # print('-------------Hub----------------')
   
   # Get Hub data
   hubData <- getData(programme, testName, 'Hub', HubDataPath, HubDataFileName, HubColumnsToInclude, HubHeaderRow, HubEndRow, HubHeaderValues,  expectedDateFormats)
