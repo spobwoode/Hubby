@@ -446,6 +446,10 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     # if the endRow is -1 just use the whole file.
     if(endRowNumber < 0) {
       endRow <- nrow(data[,1])
+      if(is.null(endRow)) {
+        # nrow sometimes returns null occasionally instead of the length.
+        endRow <- length(data[,1])
+      }
     } else {
       endRow <- endRowNumber
     }
@@ -461,9 +465,10 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     }
   }
   
-  print(endRowNumber)
-  print(endRow)
-  
+  # print(nrow(data[,1]))
+  # print(endRow)
+  # print(endRowNumber)
+
   #take the top off the file up to the header row
   if(is.na(headerRowNumber)) {
     # headerRow is not a number
@@ -687,12 +692,12 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
   # check if any columns can be converted to dates
   data <- sapply(data, convertDates, formats=expectedDateFormats)
 
-  print("")
-  print("Final data")
-  print("")
-  print(head(data))
-  print(tail(data))
-  print("")
+  # print("")
+  # print("Final data")
+  # print("")
+  # print(head(data))
+  # print(tail(data))
+  # print("")
 
   
   return( data )
