@@ -185,7 +185,7 @@ coalesce2 <- function(...) {
 # Checks if a column is in a listed date format
 # use with lapply
 # All or nothing (all vlaues are dates or no values are dates)
-convertDates <- function(data, formats=NA) {
+convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
   
   
   # checks to see if the data is all in an excel date format (eg '42568') and converts it
@@ -227,7 +227,7 @@ convertDates <- function(data, formats=NA) {
   # check if its all date formatted
   if(!any(is.na( posixed ))) {
     return( posixed )
-  } else {
+  } else if(any(!is.na(posixed))) {
     logToFile(programme,testName,"Error",paste(hubOrSource ,' file has dates which do not match the specified date formats.', sep=""))
   }
   
@@ -670,7 +670,7 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
   
   
   # check if any columns can be converted to dates
-  data <- sapply(data, convertDates, formats=expectedDateFormats)
+  data <- sapply(data, convertDates, formats=expectedDateFormats,programme,testName,hubOrSource)
   
   
   return( data )
