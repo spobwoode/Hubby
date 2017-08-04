@@ -227,6 +227,8 @@ convertDates <- function(data, formats=NA) {
   # check if its all date formatted
   if(!any(is.na( posixed ))) {
     return( posixed )
+  } else {
+    logToFile(programme,testName,"Error",paste(hubOrSource ,' file has dates which do not match the specified date formats.', sep=""))
   }
   
   
@@ -425,7 +427,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   if(!is.na(endRowNumber)) {
     # if the endRow is -1 just use the whole file.
     if(endRowNumber < 0) {
-      endRow <- nrow(data[,1])
+      endRow <- nrow(data)
     } else {
       endRow <- endRowNumber
     }
