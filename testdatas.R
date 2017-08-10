@@ -732,8 +732,16 @@ testDatas <- function(
   HubHeaderValues=FALSE
   
 ) {
-  # CHECK VALUES PASSED TO FUNCTION
-  
+
+
+
+  #####
+  ##
+  ## CHECK VALUES PASSED TO FUNCTION
+  ##
+  ####
+
+
   # exit if the programme value is not INTL or US.
   if( !( programme == "INTL" || programme == "US" ) ) {
     logToFile(programme,testName, "Error","Initialisation Error: programme must be INTL or US")
@@ -769,8 +777,17 @@ testDatas <- function(
     return(  )
   }
   
-  
-  
+
+
+
+
+  #####
+  ##
+  ##   GET DATA
+  ##
+  #####
+
+
   # print("")
   # print('-------------Source----------------')
 
@@ -813,11 +830,21 @@ testDatas <- function(
   }
 
 
-  # cast sourceData to data table
+  # cast data to data.tables
   sourceData <- data.table(sourceData)
   hubData <- data.table(hubData)
 
-  
+
+
+
+
+  #####
+  ##
+  ##   SANITIZE DATA
+  ##
+  #####
+
+
   SourceHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
   HubHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
   
@@ -837,30 +864,56 @@ testDatas <- function(
   # cast as numeric
   sourceData[[comparisonMetric]] <- suppressWarnings(as.numeric(sourceData[[comparisonMetric]]))
   hubData[[comparisonMetric]] <- suppressWarnings(as.numeric(hubData[[comparisonMetric]]))
- 
+
+
  	# select all columns that are not the comparison column
   nonComparisonCols <- colnames(hubData)[which(colnames(hubData) != comparisonMetric)]
+
+
+  # sum up duplicated rows
+  sourceData <- sourceData[,lapply(.SD, sum), by=nonComparisonCols]
+  hubData <- hubData[,lapply(.SD, sum), by=nonComparisonCols]
+
+
+
+
+
+  #####
+  ##
+  ##   JOIN DATA SOURCES
+  ##
+  #####
 
 
   # left join sourceData to hubData - i.e for all columns of sourceData join values of hubData or NA if it is not matched
   sourceData <- hubData[sourceData, on=nonComparisonCols]
 
 
-  # clear the hubData out of memory
+  # clear the hubData out of memory we dont need it anymore
   hubData <- NULL
   
 
 
+
+
+  #####
+  ##
+  ##   PERFORM TESTS
+  ##
+  #####
+
+  # create the Comparison Metric Key column
   sourceData[,'Comparison Metric Key':=' ']
   
+  # join all nonComparisonCols using pipes into the Comparison Metric Key value
   for (i in 1:nrow(sourceData)) {
     set(sourceData, i, 'Comparison Metric Key', paste(sourceData[i,..nonComparisonCols],collapse="|"))
   }
   
-  # set NA's to 0 (missin datas on hubData side)
+  # set NA's to 0 (indicates missing datas on hubData side)
   set(sourceData,which(is.na(sourceData[[comparisonMetric]])),comparisonMetric,0)
   
-  # work out the difference (join creates a duplicate column named i.ColumnNameOfJoin)
+  # work out the difference (join creates a column named i.ColumnNameOfJoin which contains the sourceData values, comparisonMetric column actually contains hubData)
   sourceData$ValueDiff <- (sourceData[[paste("i.",comparisonMetric,sep="")]] - sourceData[[comparisonMetric]])
   
   # work out diff as percentage
@@ -873,13 +926,13 @@ testDatas <- function(
   #KeyCol <- sourceData[,paste(.SD, collapse="|"), by=c(comparisonMetric)]
   
   
-  # Set test Pass/Fail result
+  # Set test Pass/Fail result to TRUE/FALSE
   sourceData[,PercentageDiffPass:= !( (PercentageDiff > threshold & ValueDiff > minimumThreshold) | (PercentageDiff < (threshold*-1) & ValueDiff < (-1*minimumThreshold)) )]
   
+  # Cast Boolean column to character so we can add "IGNORED" values
   sourceData$PercentageDiffPass <- as.character(sourceData[,PercentageDiffPass])
   
-  # Set ignored values to IGNORED instead of Pass Fail.  
-  
+  # Set ignored values to IGNORED instead of TRUE/FALSE.  
   if(!any(is.na(ignoredValues))) {
     for(i in 1:nrow(sourceData)) {
       if(length(intersect(ignoredValues, as.matrix(sourceData[i,..nonComparisonCols]))) > 0) {
@@ -889,13 +942,22 @@ testDatas <- function(
   }
   
   
+
+
+
+  #####
+  ##
+  ##   OUTPUT
+  ##
+  #####
+
+  # Give columns human readable names rather than shorthand.
   colnames(sourceData)[which(colnames(sourceData) == 'PercentageDiff')] <- "Percentage Difference"
   colnames(sourceData)[which(colnames(sourceData) == 'ValueDiff')] <- "Difference"
   colnames(sourceData)[which(colnames(sourceData) == 'PercentageDiffPass')] <- "Test Passed?"
   
   # log a complete message
   logToFile(programme,testName, "Success","Test Completed - writing to file...")
-  
   
   
   # write test result to output file
@@ -1151,4 +1213,11 @@ if(length(cleanupList) > 0) {
 		}
 	}
 }
-	
+
+
+
+
+
+
+
+# test cases to consider
