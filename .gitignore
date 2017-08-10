@@ -51,11 +51,7 @@ tmp/*
 log/*
 sql/*
 output/*
-
-# ignore temp files
-*.Rhistory
-~$*.xlsx*
-
-# ignore private test data files
 SourceVHubDataTests.xlsx
 TestsToRun_bak.xlsx
+*.Rhistory
+~$SourceVHubDataTests.xlsx
