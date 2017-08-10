@@ -189,7 +189,7 @@ coalesce2 <- function(...) {
 # All or nothing (all vlaues are dates or no values are dates)
 convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
   
-
+  
   # checks to see if the data is all in an excel date format (eg '42568') and converts it
   if (all(grepl('^[0-9]{5}$',data))) {
     data <- do.call(c,lapply(as.numeric(data),excel_numeric_to_date))
@@ -237,7 +237,7 @@ convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
   # no formats specified or no formats matched - just return the data.
   return ( data )
   
-
+  
 }
 
 
@@ -317,7 +317,7 @@ getFTPFileList <- function(
 getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE) {
   
   skip <- ifelse(is.logical(skip) & ! skip,0, skip)
-
+  
   # read excel data file
   # read it in once to get the number of columns (this is ridiculous there must be a better way)
   data <- read_excel(filepath,col_names=FALSE,skip=skip)
@@ -334,15 +334,15 @@ getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE) 
   # if(any(sapply(data,function(x) inherits(x, 'POSIXt' )))) {
   #     data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- sapply(data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))], function(x) {as.character(x)})
   # }
-
+  
   #format dates in header if necessary
   if(isTRUE(headerValues)) {
     for(i in 2:ncol(data)) {
       colnames(data)[i] <- gsub("(^|[^0-9])0+", "\\1", format(as.Date(as.Date('1900-01-01')+as.numeric(colnames(data)[i])-2), "X%m.%d.%Y"), perl = TRUE)
     }
   }
-
-
+  
+  
   return( data )
   
 }
@@ -353,19 +353,19 @@ getCSVFile <- function(filepath, skip=FALSE, header=FALSE) {
   
   #read csv data file
   #return( read.csv(filepath,stringsAsFactors=FALSE,header=header,skip=skip,fill=TRUE) )
-
+  
   #readlines
   lines <- readLines(filepath,n=30)
   maxColumns <- max(str_count(lines,","))
-
+  
   colnames <- c("V1")
-
+  
   if(maxColumns > 1) {
     for(i in 1:maxColumns) {
       colnames <- c(colnames, paste("V", i+1,sep=""))
     }
   }
-
+  
   return( read.csv(filepath,stringsAsFactors=FALSE,header=FALSE,skip=skip,fill=TRUE,col.names=colnames) )
   
 }
@@ -408,13 +408,13 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   skipRows <- FALSE
   
   rowBeforeHeader <- 0
-
+  
   # If the user passed a number - then the head row is in the row specified
   # skip all rows prior to the header row (e.g row 3 specified then skip 2 rows (1 & 2)
   # end orw number specified by user then needs to be 2 rows less as the final read data won't include 1 & 2.
   if(!is.na(headerRowNumber) & headerRowNumber > 1 ) { 
     rowBeforeHeader <- headerRowNumber - 1
-    skipRows <- rowBeforeHeader
+    skipRows <- rowBeforeHeader +1
     if(!is.na(endRowNumber)) {
       endRowNumber <- endRowNumber - rowBeforeHeader
     }
@@ -425,13 +425,13 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   
   # don't skip the header
   if(isTRUE(headerValues)) { 
-    removeHeaderRow <- FALSE
+    #removeHeaderRow <- FALSE
   }
-
-
+  
+  
   # get data file
   if(grepl('\\.csv$',filename)) {
-
+    
     #read csv data file, chop off the top of the file if necesary
     data <- getCSVFile(dataLocation,skip=skipRows,header=headerValues)
     
@@ -441,7 +441,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     data <- suppressWarnings(getExcelFile(dataLocation,skip=skipRows,headerValues=headerValues))
     # the read_excel library automatically takes the header row out if its all lined up right
   }
-
+  
   
   # endRow is a number
   if(!is.na(endRowNumber)) {
@@ -470,13 +470,13 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   # print(nrow(data[,1]))
   # print(endRow)
   # print(endRowNumber)
-
+  
   #take the top off the file up to the header row
   if(is.na(headerRowNumber)) {
     # headerRow is not a number
     if(!(headerRow %in% names(data))) {
       # pull the row number where the identifier appears
-
+      
       rowBeforeHeader <- which(data[,1] == headerRow) - 1
       if(length(rowBeforeHeader) == 0) {
         logToFile(programme,testName,"Error",paste(hubOrSource ,' Header Row identifier "', headerRow, '" is not present in column 1 of the data file. Check correct file/identifier has been used', sep=""))
@@ -492,30 +492,30 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   } else {
     headerRow <- ifelse(headerRowNumber > 0, headerRowNumber, 0)
   }
-
-
+  
+  
   # validate header/endRow locations (dont want them the wrong way round)
   if(headerRow >= endRow) {
     logToFile(programme,testName,"Error",paste("Initialisation Error: ", hubOrSource ," endRow must be after headerRow",sep=""))
     return (  )
   }
-
- 
-
+  
+  
+  
   if(grepl('\\.xlsx?$',filename)) {
-
+    
     skipRows <- rowBeforeHeader
-
+    
     # read excel data file again so that dates are cast properly.
     data <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues))
     
     #removeHeaderRow <- TRUE
   }
-
+  
   # strip off excess rows
   # data may have multiple uneeded rows - so strip off any that aren't part of the test
   data <- data[headerRow:endRow,]
-
+  
   # remove header line for CSV files
   if(removeHeaderRow) {
     # take column names row off now that its not needed
@@ -523,8 +523,8 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     # remove the headers row
     data <- data[-1,]
   }
-
-
+  
+  
   # log filename used
   logToFile(programme,testName, "Processing",paste('Used file ', dataLocation, ' for ',  hubOrSource, ' Data', sep=""))
   
@@ -662,21 +662,21 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
     data <- getLocalData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow, headerValues)
     
   }
-
+  
   if(is.null(data)) {
     # no datas returned
     return (  )
   }
   
-
-
+  
+  
   # if columns to include is empty then include all rows
   if(! is.na(columnsToInclude) & columnsToInclude != '') {
     columnsToIncludeProcessed <- strsplit(columnsToInclude, ",") 
     columnsToIncludeProcessed <-  do.call(rbind, columnsToIncludeProcessed)
     columnsToIncludeProcessed <- suppressWarnings(as.numeric(columnsToIncludeProcessed[1,]))
     
-
+    
     if(any(is.na(columnsToIncludeProcessed))) {
       logToFile(programme,testName,"Error",paste("Initialisation Error: ", hubOrSource ,"ColumnsToInclude must be column numbers seperated by commas, a value has been used that is not a number: ", columnsToInclude, sep=""))
       return(  )
@@ -690,17 +690,17 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
     }
   }
   
-
+  
   # check if any columns can be converted to dates
   data <- sapply(data, convertDates, formats=expectedDateFormats ,programme,testName,hubOrSource)
-
+  
   # print("")
   # print("Final data")
   # print("")
   # print(head(data))
   # print(tail(data))
   # print("")
-
+  
   
   return( data )
 }
@@ -734,16 +734,16 @@ testDatas <- function(
   HubHeaderValues=FALSE
   
 ) {
-
-
-
+  
+  
+  
   #####
   ##
   ## CHECK VALUES PASSED TO FUNCTION
   ##
   ####
-
-
+  
+  
   # exit if the programme value is not INTL or US.
   if( !( programme == "INTL" || programme == "US" ) ) {
     logToFile(programme,testName, "Error","Initialisation Error: programme must be INTL or US")
@@ -779,20 +779,20 @@ testDatas <- function(
     return(  )
   }
   
-
-
-
-
+  
+  
+  
+  
   #####
   ##
   ##   GET DATA
   ##
   #####
-
-
+  
+  
   # print("")
   # print('-------------Source----------------')
-
+  
   # Get source data
   sourceData <- getData(programme, testName, 'Source', SourceDataPath, SourceDataFileName, SourceColumnsToInclude, SourceHeaderRow, SourceEndRow, SourceHeaderValues, expectedDateFormats)
   
@@ -800,8 +800,8 @@ testDatas <- function(
     # source data didn't come home
     return(  )
   }
- 
-
+  
+  
   # print("")
   # print('-------------Hub----------------')
   
@@ -812,7 +812,7 @@ testDatas <- function(
     # theres no hub data there...
     return(  )
   }
-
+  
   
   ## GG we got datas
   
@@ -830,23 +830,23 @@ testDatas <- function(
     logToFile(programme,testName, "Error","Initialisation Error: column names and number of columns must match exactly between Source Data and Hub Data")
     return(  )
   }
-
-
+  
+  
   # cast data to data.tables
   sourceData <- data.table(sourceData)
   hubData <- data.table(hubData)
-
-
-
-
-
+  
+  
+  
+  
+  
   #####
   ##
   ##   SANITIZE DATA
   ##
   #####
-
-
+  
+  
   SourceHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
   HubHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
   
@@ -862,9 +862,9 @@ testDatas <- function(
     hubData$variable <- gsub('[.]','-',hubData$variable)
   }
   
-
+  
   # cast as numeric
-
+  
   if(!(comparisonMetric %in% colnames(sourceData))) {
     logToFile(programme,testName, "Error","Initialisation Error: comparison column not found in source data file.")
     return(  )
@@ -873,48 +873,48 @@ testDatas <- function(
     logToFile(programme,testName, "Error","Initialisation Error: comparison column not found in Hub data file.")
     return(  )
   }
-
-
+  
+  
   sourceData[[comparisonMetric]] <- suppressWarnings(as.numeric(sourceData[[comparisonMetric]]))
   hubData[[comparisonMetric]] <- suppressWarnings(as.numeric(hubData[[comparisonMetric]]))
-
-
+  
+  
   # select all columns that are not the comparison column
   nonComparisonCols <- colnames(hubData)[which(colnames(hubData) != comparisonMetric)]
-
-
+  
+  
   # sum up duplicated rows
   sourceData <- sourceData[,lapply(.SD, sum), by=nonComparisonCols]
   hubData <- hubData[,lapply(.SD, sum), by=nonComparisonCols]
-
-
-
-
-
+  
+  
+  
+  
+  
   #####
   ##
   ##   JOIN DATA SOURCES
   ##
   #####
-
-
+  
+  
   # left join sourceData to hubData - i.e for all columns of sourceData join values of hubData or NA if it is not matched
   sourceData <- hubData[sourceData, on=nonComparisonCols]
-
-
+  
+  
   # clear the hubData out of memory we dont need it anymore
   hubData <- NULL
   
-
-
-
-
+  
+  
+  
+  
   #####
   ##
   ##   PERFORM TESTS
   ##
   #####
-
+  
   # create the Comparison Metric Key column
   sourceData[,'Comparison Metric Key':=' ']
   
@@ -955,15 +955,15 @@ testDatas <- function(
   }
   
   
-
-
-
+  
+  
+  
   #####
   ##
   ##   OUTPUT
   ##
   #####
-
+  
   # Give columns human readable names rather than shorthand.
   colnames(sourceData)[which(colnames(sourceData) == 'PercentageDiff')] <- "Percentage Difference"
   colnames(sourceData)[which(colnames(sourceData) == 'ValueDiff')] <- "Difference"
@@ -1004,26 +1004,25 @@ formatIgnoredValues <- function(valueString) {
     ignoredValues <- strsplit(as.character(valueString), ",") 
     ignoredValues <-  do.call(rbind, ignoredValues)
     
-    
-    # Possible yesterday values:
-    # YESTERDAY - changes this to yesterdays date in format: yyyy-mm-dd
-    if(any(ignoredValues == 'YESTERDAY')) {
-      ignoredValues[which(ignoredValues == 'YESTERDAY')] <- format(runStartTime-(60*60*24),coercedDateFormat)
-    }
+    # take lookback from end of ignoredValues, i.e. '-1' is the day before yesterday
+    lookbackDays <- str_match(ignoredValues,'^YESTERDAY[\\(]?[^\\)]*[\\)]?-?([0-9]+)$')[,2]
+    lookbackDays[is.na(lookbackDays)] <- 0
+    lookbackDays <- as.numeric(lookbackDays) + 1
+    ignoredValues <- format(runStartTime-(60*60*24*lookbackDays),coercedDateFormat)
     
     # YESTERDAY(formatstring) - changes yesterdays date in format matching formatString
     # must be an R date string
-    formatYesterday <- grepl('^YESTERDAY\\([^\\)]+\\)$', ignoredValues)
+    formatYesterday <- grepl('^YESTERDAY\\([^\\)]+\\)?-?[0-9]?$', ignoredValues)
     
     if(any(formatYesterday)) {
       # replace the YESTERDAY(...) with just the ...
       ignoredValues[formatYesterday] <- sub('YESTERDAY\\(([^\\)]+)\\)', '\\1', ignoredValues[formatYesterday])
       
       #use the value as a format string
-      ignoredValues[formatYesterday] <- format(runStartTime-(60*60*24),ignoredValues[formatYesterday])
+      ignoredValues[formatYesterday] <- format(runStartTime-(60*60*24*lookbackDays),ignoredValues[formatYesterday])
       
-      if(! format(runStartTime-(60*60*24),coercedDateFormat) %in% ignoredValues) {
-        ignoredValues <- c(ignoredValues, format(runStartTime-(60*60*24),coercedDateFormat),gsub("(^|[^0-9])0+", "\\1", ignoredValues))
+      if(! format(runStartTime-(60*60*24*lookbackDays),coercedDateFormat) %in% ignoredValues) {
+        ignoredValues <- c(ignoredValues, format(runStartTime-(60*60*24*lookbackDays),coercedDateFormat),gsub("(^|[^0-9])0+", "\\1", ignoredValues))
       }
     }
     
@@ -1036,14 +1035,14 @@ formatIgnoredValues <- function(valueString) {
 
 
 runSingleTest <- function(programme, testName, comparisonMetric, threshold, minimumThreshold, ignoredValues, expectedDateFormats, SourceDataPath, SourceDataFileName, SourceHeaderRow, SourceEndRow, SourceColumnsToInclude, SourceHeaderValues, HubDataPath, HubDataFileName, HubHeaderRow, HubEndRow, HubColumnsToInclude, HubHeaderValues) {
-
+  
   if(!is.na(ignoredValues)) {
     ignoredValues <- formatIgnoredValues(ignoredValues)
   }
-
-
+  
+  
   tryCatch({
-
+    
     result <- testDatas(
       programme=programme,
       testName=testName,
@@ -1052,14 +1051,14 @@ runSingleTest <- function(programme, testName, comparisonMetric, threshold, mini
       minimumThreshold=minimumThreshold,
       ignoredValues=ignoredValues,
       expectedDateFormats=expectedDateFormats,
-
+      
       SourceDataPath=SourceDataPath,
       SourceDataFileName=SourceDataFileName,
       SourceHeaderRow=SourceHeaderRow,
       SourceEndRow=SourceEndRow,
       SourceColumnsToInclude=SourceColumnsToInclude,
       SourceHeaderValues=SourceHeaderValues,
-
+      
       HubDataPath=HubDataPath,
       HubDataFileName=HubDataFileName,
       HubHeaderRow=HubHeaderRow,
@@ -1067,21 +1066,21 @@ runSingleTest <- function(programme, testName, comparisonMetric, threshold, mini
       HubColumnsToInclude=HubColumnsToInclude,
       HubHeaderValues=HubHeaderValues
     )
-
+    
     if(is.character(result)) {
       print( paste(programme, " - ", testName, ' ran successfully.', sep="") )
     } else {
       warning(paste('Something went wrong on: "', programme, " - ", testName, '". Check the logs for more info', sep=""))
     }
-
+    
   }, error=function(err) {
-
+    
     logToFile(programme,testName, "Error", err )
     warning(paste('Something went wrong on: "', programme, " - ", testName, '". Check the logs for more info', sep="")) 
-
+    
   });
-
-
+  
+  
 }
 
 
@@ -1098,7 +1097,7 @@ runTestsFromDefinitionSheet <- function() {
   } else {
     lastRow <- nrow(testList)
   }
-
+  
   # TODO: Try catches around this!
   for(i in 1:lastRow) {
     
@@ -1135,32 +1134,32 @@ runTestsFromDefinitionSheet <- function() {
         print( paste('Skipped "', testList[i,2], " - ", testList[i,3], '" test is not Enabled.', sep="") )
       }
     }
-
+    
   }
   
-
+  
 }
 
 
 splitParameter <- function(arg) {
-    if( !is.na(arg) & is.character(arg) ) {
-      spl <- strsplit(arg, "=")
-      spl <- do.call(rbind, spl)
-
-      return( spl )
-    }
+  if( !is.na(arg) & is.character(arg) ) {
+    spl <- strsplit(arg, "=")
+    spl <- do.call(rbind, spl)
+    
+    return( spl )
+  }
 }
 
 pivotParamList <- function(cmdargs) {
   arguments <- c()
   lengthArgs <- length(cmdargs)
-
+  
   for(i in 2:lengthArgs) {
     splitArg <- splitParameter(cmdargs[i])
-
+    
     arguments[splitArg[1,1]] <- splitArg[1,2]
   }
-
+  
   return(arguments)
 }
 
@@ -1178,12 +1177,12 @@ if(length(cmdargs) > 0 & any(grep('-\\w*v', cmdargs[1])) ) {
 if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
   # the -r param tells the script to run as a one off with the rest of the params as
   # as input values
-
+  
   if(length(cmdargs) < 7) {
     print('Please ensure you have included all required arguments to run a valid test')
   } else {
     formattedArgs <- pivotParamList(cmdargs)
-
+    
     runSingleTest(
       programme=formattedArgs["Programme"],
       testName=formattedArgs["TestName"],
@@ -1192,14 +1191,14 @@ if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
       minimumThreshold=formattedArgs["MinimumThreshold"],
       ignoredValues=formattedArgs["IgnoredValues"],
       expectedDateFormats=formattedArgs["ExepectedDateFormats"],
-
+      
       SourceDataPath=formattedArgs["SourceDataConnectionString"],
       SourceDataFileName=formattedArgs["SourceDataFileName"],
       SourceHeaderRow=formattedArgs["SourceDataHeaderRowIdentifier"],
       SourceEndRow=formattedArgs["SourceDataEndRowIdentifier"],
       SourceColumnsToInclude=formattedArgs["SourceDataColumnsToInclude"],
       SourceHeaderValues=formattedArgs["SourceDataHeaderValues"],
-
+      
       HubDataPath=formattedArgs["HubDataConnectionString"],
       HubDataFileName=formattedArgs["HubDataFileName"],
       HubHeaderRow=formattedArgs["HubDataHeaderRowIdentifier"],
@@ -1208,12 +1207,12 @@ if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
       HubHeaderValues=formattedArgs["HubDataHeaderValues"]
     )
   }
-
+  
 } else {
-
+  
   # Run it!
   runTestsFromDefinitionSheet()
-
+  
 }
 
 
