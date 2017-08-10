@@ -26,7 +26,7 @@ cleanupList <- list()
 
 # set to 1 to have the programme print everything its doing to the console as well as the log.
 # set to 0 to quiet down
-verbose <- 0
+verbose <- 1
 
 
 
@@ -187,7 +187,7 @@ coalesce2 <- function(...) {
 # Checks if a column is in a listed date format
 # use with lapply
 # All or nothing (all vlaues are dates or no values are dates)
-convertDates <- function(data, formats=NA) {
+convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
   
 
   # checks to see if the data is all in an excel date format (eg '42568') and converts it
@@ -214,6 +214,8 @@ convertDates <- function(data, formats=NA) {
       
       if(!any(is.na(posixed))) {
         return( posixed )
+      } else if(any(!is.na(posixed))) {
+        logToFile(programme,testName,"Error",paste(hubOrSource ,' file has dates which do not match the specified date formats.', sep=""))
       }
     }
   }
@@ -502,7 +504,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
 
   if(grepl('\\.xlsx?$',filename)) {
 
-  	skipRows <- rowBeforeHeader
+    skipRows <- rowBeforeHeader
 
     # read excel data file again so that dates are cast properly.
     data <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues))
@@ -690,7 +692,7 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
   
 
   # check if any columns can be converted to dates
-  data <- sapply(data, convertDates, formats=expectedDateFormats)
+  data <- sapply(data, convertDates, formats=expectedDateFormats ,programme,testName,hubOrSource)
 
   # print("")
   # print("Final data")
@@ -862,11 +864,22 @@ testDatas <- function(
   
 
   # cast as numeric
+
+  if(!(comparisonMetric %in% colnames(sourceData))) {
+    logToFile(programme,testName, "Error","Initialisation Error: comparison column not found in source data file.")
+    return(  )
+  }
+  if(!(comparisonMetric %in% colnames(hubData))) {
+    logToFile(programme,testName, "Error","Initialisation Error: comparison column not found in Hub data file.")
+    return(  )
+  }
+
+
   sourceData[[comparisonMetric]] <- suppressWarnings(as.numeric(sourceData[[comparisonMetric]]))
   hubData[[comparisonMetric]] <- suppressWarnings(as.numeric(hubData[[comparisonMetric]]))
 
 
- 	# select all columns that are not the comparison column
+  # select all columns that are not the comparison column
   nonComparisonCols <- colnames(hubData)[which(colnames(hubData) != comparisonMetric)]
 
 
@@ -1024,49 +1037,49 @@ formatIgnoredValues <- function(valueString) {
 
 runSingleTest <- function(programme, testName, comparisonMetric, threshold, minimumThreshold, ignoredValues, expectedDateFormats, SourceDataPath, SourceDataFileName, SourceHeaderRow, SourceEndRow, SourceColumnsToInclude, SourceHeaderValues, HubDataPath, HubDataFileName, HubHeaderRow, HubEndRow, HubColumnsToInclude, HubHeaderValues) {
 
-	if(!is.na(ignoredValues)) {
-		ignoredValues <- formatIgnoredValues(ignoredValues)
-	}
+  if(!is.na(ignoredValues)) {
+    ignoredValues <- formatIgnoredValues(ignoredValues)
+  }
 
 
-	tryCatch({
+  tryCatch({
 
-		result <- testDatas(
-			programme=programme,
-			testName=testName,
-			comparisonMetric=comparisonMetric,
-			threshold=threshold,
-			minimumThreshold=minimumThreshold,
-			ignoredValues=ignoredValues,
-			expectedDateFormats=expectedDateFormats,
+    result <- testDatas(
+      programme=programme,
+      testName=testName,
+      comparisonMetric=comparisonMetric,
+      threshold=threshold,
+      minimumThreshold=minimumThreshold,
+      ignoredValues=ignoredValues,
+      expectedDateFormats=expectedDateFormats,
 
-			SourceDataPath=SourceDataPath,
-			SourceDataFileName=SourceDataFileName,
-			SourceHeaderRow=SourceHeaderRow,
-			SourceEndRow=SourceEndRow,
-			SourceColumnsToInclude=SourceColumnsToInclude,
+      SourceDataPath=SourceDataPath,
+      SourceDataFileName=SourceDataFileName,
+      SourceHeaderRow=SourceHeaderRow,
+      SourceEndRow=SourceEndRow,
+      SourceColumnsToInclude=SourceColumnsToInclude,
       SourceHeaderValues=SourceHeaderValues,
 
-			HubDataPath=HubDataPath,
-			HubDataFileName=HubDataFileName,
-			HubHeaderRow=HubHeaderRow,
-			HubEndRow=HubEndRow,
-			HubColumnsToInclude=HubColumnsToInclude,
-			HubHeaderValues=HubHeaderValues
-		)
+      HubDataPath=HubDataPath,
+      HubDataFileName=HubDataFileName,
+      HubHeaderRow=HubHeaderRow,
+      HubEndRow=HubEndRow,
+      HubColumnsToInclude=HubColumnsToInclude,
+      HubHeaderValues=HubHeaderValues
+    )
 
-		if(is.character(result)) {
-			print( paste(programme, " - ", testName, ' ran successfully.', sep="") )
-		} else {
-			warning(paste('Something went wrong on: "', programme, " - ", testName, '". Check the logs for more info', sep=""))
-		}
+    if(is.character(result)) {
+      print( paste(programme, " - ", testName, ' ran successfully.', sep="") )
+    } else {
+      warning(paste('Something went wrong on: "', programme, " - ", testName, '". Check the logs for more info', sep=""))
+    }
 
-	}, error=function(err) {
+  }, error=function(err) {
 
-		logToFile(programme,testName, "Error", err )
-		warning(paste('Something went wrong on: "', programme, " - ", testName, '". Check the logs for more info', sep="")) 
+    logToFile(programme,testName, "Error", err )
+    warning(paste('Something went wrong on: "', programme, " - ", testName, '". Check the logs for more info', sep="")) 
 
-	});
+  });
 
 
 }
@@ -1091,7 +1104,7 @@ runTestsFromDefinitionSheet <- function() {
     
     
     if(testList[i,1] == 'Enabled') {
-     	runSingleTest(
+      runSingleTest(
         programme=testList[i,2],
         testName=testList[i,3],
         comparisonMetric=testList[i,4],
@@ -1115,13 +1128,13 @@ runTestsFromDefinitionSheet <- function() {
         HubHeaderValues=testList[i,20]
       )
     } else if (is.character(testList[i,1]) & testList[i,1] == 'Example') {
-			logToFile(testList[i,1],testList[i,3], "Skipped", paste("this line in the tests file is an example and will not be run.", sep="") )
-		} else {
-			logToFile(testList[i,2],testList[i,3], "Skipped","Test is not Enabled")
-			if(verbose) {
-				print( paste('Skipped "', testList[i,2], " - ", testList[i,3], '" test is not Enabled.', sep="") )
-			}
-		}
+      logToFile(testList[i,1],testList[i,3], "Skipped", paste("this line in the tests file is an example and will not be run.", sep="") )
+    } else {
+      logToFile(testList[i,2],testList[i,3], "Skipped","Test is not Enabled")
+      if(verbose) {
+        print( paste('Skipped "', testList[i,2], " - ", testList[i,3], '" test is not Enabled.', sep="") )
+      }
+    }
 
   }
   
@@ -1130,25 +1143,25 @@ runTestsFromDefinitionSheet <- function() {
 
 
 splitParameter <- function(arg) {
-	  if( !is.na(arg) & is.character(arg) ) {
-	    spl <- strsplit(arg, "=")
-	    spl <- do.call(rbind, spl)
+    if( !is.na(arg) & is.character(arg) ) {
+      spl <- strsplit(arg, "=")
+      spl <- do.call(rbind, spl)
 
-	    return( spl )
-	  }
+      return( spl )
+    }
 }
 
 pivotParamList <- function(cmdargs) {
-	arguments <- c()
-	lengthArgs <- length(cmdargs)
+  arguments <- c()
+  lengthArgs <- length(cmdargs)
 
-	for(i in 2:lengthArgs) {
-		splitArg <- splitParameter(cmdargs[i])
+  for(i in 2:lengthArgs) {
+    splitArg <- splitParameter(cmdargs[i])
 
-		arguments[splitArg[1,1]] <- splitArg[1,2]
-	}
+    arguments[splitArg[1,1]] <- splitArg[1,2]
+  }
 
-	return(arguments)
+  return(arguments)
 }
 
 
@@ -1157,49 +1170,49 @@ cmdargs <- commandArgs(trailingOnly=TRUE)
 
 # switch to verbose output if v is passed in the runtime args
 if(length(cmdargs) > 0 & any(grep('-\\w*v', cmdargs[1])) ) {
-	verbose <- 1
+  verbose <- 1
 }
 
 
 # if there are any and the first one is -r then runa  single test
 if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
-	# the -r param tells the script to run as a one off with the rest of the params as
-	# as input values
+  # the -r param tells the script to run as a one off with the rest of the params as
+  # as input values
 
-	if(length(cmdargs) < 7) {
-		print('Please ensure you have included all required arguments to run a valid test')
-	} else {
-		formattedArgs <- pivotParamList(cmdargs)
+  if(length(cmdargs) < 7) {
+    print('Please ensure you have included all required arguments to run a valid test')
+  } else {
+    formattedArgs <- pivotParamList(cmdargs)
 
-		runSingleTest(
-			programme=formattedArgs["Programme"],
-			testName=formattedArgs["TestName"],
-			comparisonMetric=formattedArgs["ComparisonMetric"],
-			threshold=formattedArgs["Threshold"],
-			minimumThreshold=formattedArgs["MinimumThreshold"],
-			ignoredValues=formattedArgs["IgnoredValues"],
-			expectedDateFormats=formattedArgs["ExepectedDateFormats"],
+    runSingleTest(
+      programme=formattedArgs["Programme"],
+      testName=formattedArgs["TestName"],
+      comparisonMetric=formattedArgs["ComparisonMetric"],
+      threshold=formattedArgs["Threshold"],
+      minimumThreshold=formattedArgs["MinimumThreshold"],
+      ignoredValues=formattedArgs["IgnoredValues"],
+      expectedDateFormats=formattedArgs["ExepectedDateFormats"],
 
-			SourceDataPath=formattedArgs["SourceDataConnectionString"],
-			SourceDataFileName=formattedArgs["SourceDataFileName"],
-			SourceHeaderRow=formattedArgs["SourceDataHeaderRowIdentifier"],
-			SourceEndRow=formattedArgs["SourceDataEndRowIdentifier"],
-			SourceColumnsToInclude=formattedArgs["SourceDataColumnsToInclude"],
-			SourceHeaderValues=formattedArgs["SourceDataHeaderValues"],
+      SourceDataPath=formattedArgs["SourceDataConnectionString"],
+      SourceDataFileName=formattedArgs["SourceDataFileName"],
+      SourceHeaderRow=formattedArgs["SourceDataHeaderRowIdentifier"],
+      SourceEndRow=formattedArgs["SourceDataEndRowIdentifier"],
+      SourceColumnsToInclude=formattedArgs["SourceDataColumnsToInclude"],
+      SourceHeaderValues=formattedArgs["SourceDataHeaderValues"],
 
-			HubDataPath=formattedArgs["HubDataConnectionString"],
-			HubDataFileName=formattedArgs["HubDataFileName"],
-			HubHeaderRow=formattedArgs["HubDataHeaderRowIdentifier"],
-			HubEndRow=formattedArgs["HubDataEndRowIdentifier"],
-			HubColumnsToInclude=formattedArgs["HubDataColumnsToInclude"],
-			HubHeaderValues=formattedArgs["HubDataHeaderValues"]
-		)
-	}
+      HubDataPath=formattedArgs["HubDataConnectionString"],
+      HubDataFileName=formattedArgs["HubDataFileName"],
+      HubHeaderRow=formattedArgs["HubDataHeaderRowIdentifier"],
+      HubEndRow=formattedArgs["HubDataEndRowIdentifier"],
+      HubColumnsToInclude=formattedArgs["HubDataColumnsToInclude"],
+      HubHeaderValues=formattedArgs["HubDataHeaderValues"]
+    )
+  }
 
 } else {
 
-	# Run it!
-	runTestsFromDefinitionSheet()
+  # Run it!
+  runTestsFromDefinitionSheet()
 
 }
 
@@ -1207,11 +1220,11 @@ if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
 
 # Cleanup any temporary files created during batch runs
 if(length(cleanupList) > 0) {
-	for(i in 1:length(cleanupList)) {
-		if(file.exists(cleanupList[[i]])) {
-			file.remove(cleanupList[[i]])
-		}
-	}
+  for(i in 1:length(cleanupList)) {
+    if(file.exists(cleanupList[[i]])) {
+      file.remove(cleanupList[[i]])
+    }
+  }
 }
 
 
