@@ -314,13 +314,17 @@ getFTPFileList <- function(
 
 
 
-getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE) {
+getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE,sheet=1) {
   
   skip <- ifelse(is.logical(skip) & ! skip,0, skip)
   
+  if(is.na(sheet)) {
+    sheet <- 1;
+  }
+  
   # read excel data file
   # read it in once to get the number of columns (this is ridiculous there must be a better way)
-  data <- read_excel(filepath,col_names=FALSE,skip=skip)
+  data <- read_excel(filepath,col_names=FALSE,skip=skip,sheet=sheet)
   
   # read it in again but set all the columns to text
   textRep <- rep("text",ncol(data))
@@ -329,7 +333,7 @@ getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE) 
     textRep[which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- 'date'
   }
   
-  data <- read_excel(filepath, col_types=textRep, na="", col_names=FALSE, skip=skip)
+  data <- read_excel(filepath, col_types=textRep, na="", col_names=FALSE, skip=skip, sheet=sheet)
   
   # if(any(sapply(data,function(x) inherits(x, 'POSIXt' )))) {
   #     data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- sapply(data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))], function(x) {as.character(x)})
@@ -372,7 +376,7 @@ getCSVFile <- function(filepath, skip=FALSE, header=FALSE) {
 
 
 
-getLocalData <- function(programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues) {
+getLocalData <- function(programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet) {
   
   
   # default HubEndrow vlaue if empty character is passed
@@ -438,7 +442,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   } else if(grepl('\\.xlsx?$',filename)) {
     
     # read excel data file
-    data <- suppressWarnings(getExcelFile(dataLocation,skip=skipRows,headerValues=headerValues))
+    data <- suppressWarnings(getExcelFile(dataLocation,skip=skipRows,headerValues=headerValues,sheet=sheet))
     # the read_excel library automatically takes the header row out if its all lined up right
   }
   
@@ -507,7 +511,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     skipRows <- rowBeforeHeader
     
     # read excel data file again so that dates are cast properly.
-    data <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues))
+    data <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues,sheet=sheet))
     
     #removeHeaderRow <- TRUE
   }
@@ -598,7 +602,7 @@ getFTPData <- function(programme, testName, hubOrSource, filepath, filename, hea
     
   }
   
-  data <- getLocalData( programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues )
+  data <- getLocalData( programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet )
   
   if(is.null(data)) {
     logToFile(programme,testName,"Error", paste(hubOrSource,' The file was downloaded but can no longer be accessed - please check the permissions on the temp folder: ', tempFilesPath, sep=""))
@@ -642,7 +646,7 @@ getSQLData <- function(programme, testName, hubOrSource, connectionString, query
 
 
 
-getData <- function( programme, testName, hubOrSource, connectionPathString, fileName,  columnsToInclude, headerRow, endRow, headerValues, expectedDateFormats) {
+getData <- function( programme, testName, hubOrSource, connectionPathString, fileName,  columnsToInclude, headerRow, endRow, headerValues, expectedDateFormats, sheet) {
   
   if(is.na(headerValues)) {
     headerValues <- FALSE
@@ -659,7 +663,7 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
     
   } else {
     # dunno what it is try open it as a file
-    data <- getLocalData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow, headerValues)
+    data <- getLocalData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow, headerValues, sheet)
     
   }
   
@@ -725,13 +729,15 @@ testDatas <- function(
   SourceHeaderRow=1,
   SourceEndRow=-1,
   SourceHeaderValues=FALSE,
+  SourceSheet=1,
   
   HubDataPath,
   HubDataFileName,
   HubColumnsToInclude="",
   HubHeaderRow=1,
   HubEndRow=-1,
-  HubHeaderValues=FALSE
+  HubHeaderValues=FALSE,
+  HubSheet=1
   
 ) {
   
@@ -764,6 +770,24 @@ testDatas <- function(
   SourceEndRow  <- as.character(SourceEndRow)
   HubHeaderRow  <- as.character(HubHeaderRow)
   HubEndRow  <- as.character(HubEndRow)
+  #SourceSheet <- as.character(SourceSheet)
+  #HubSheet <- as.character(HubSheet)
+  
+  if (!is.na(SourceSheet)) {
+    if (!is.na(as.numeric(SourceSheet))) {
+      SourceSheet <- as.numeric(SourceSheet)
+    } else {
+      SourceSheet <- as.character(SourceSheet)
+    }
+  }
+  
+  if (!is.na(HubSheet)) {
+    if (!is.na(as.numeric(HubSheet))) {
+      HubSheet <- as.numeric(HubSheet)
+    } else {
+      HubSheet <- as.character(HubSheet)
+    }
+  }
   
   threshold <- as.numeric(threshold)
   minimumThreshold <- as.numeric(minimumThreshold)
@@ -783,7 +807,7 @@ testDatas <- function(
   
   
   
-  #####
+  #####A
   ##
   ##   GET DATA
   ##
@@ -794,7 +818,7 @@ testDatas <- function(
   # print('-------------Source----------------')
   
   # Get source data
-  sourceData <- getData(programme, testName, 'Source', SourceDataPath, SourceDataFileName, SourceColumnsToInclude, SourceHeaderRow, SourceEndRow, SourceHeaderValues, expectedDateFormats)
+  sourceData <- getData(programme, testName, 'Source', SourceDataPath, SourceDataFileName, SourceColumnsToInclude, SourceHeaderRow, SourceEndRow, SourceHeaderValues, expectedDateFormats, SourceSheet)
   
   if(is.null(sourceData)) {
     # source data didn't come home
@@ -806,7 +830,7 @@ testDatas <- function(
   # print('-------------Hub----------------')
   
   # Get Hub data
-  hubData <- getData(programme, testName, 'Hub', HubDataPath, HubDataFileName, HubColumnsToInclude, HubHeaderRow, HubEndRow, HubHeaderValues,  expectedDateFormats)
+  hubData <- getData(programme, testName, 'Hub', HubDataPath, HubDataFileName, HubColumnsToInclude, HubHeaderRow, HubEndRow, HubHeaderValues,  expectedDateFormats, HubSheet)
   
   if(is.null(hubData)) {
     # theres no hub data there...
@@ -1034,7 +1058,7 @@ formatIgnoredValues <- function(valueString) {
 
 
 
-runSingleTest <- function(programme, testName, comparisonMetric, threshold, minimumThreshold, ignoredValues, expectedDateFormats, SourceDataPath, SourceDataFileName, SourceHeaderRow, SourceEndRow, SourceColumnsToInclude, SourceHeaderValues, HubDataPath, HubDataFileName, HubHeaderRow, HubEndRow, HubColumnsToInclude, HubHeaderValues) {
+runSingleTest <- function(programme, testName, comparisonMetric, threshold, minimumThreshold, ignoredValues, expectedDateFormats, SourceDataPath, SourceDataFileName, SourceHeaderRow, SourceEndRow, SourceColumnsToInclude, SourceHeaderValues, SourceSheet, HubDataPath, HubDataFileName, HubHeaderRow, HubEndRow, HubColumnsToInclude, HubHeaderValues, HubSheet) {
   
   if(!is.na(ignoredValues)) {
     ignoredValues <- formatIgnoredValues(ignoredValues)
@@ -1058,13 +1082,15 @@ runSingleTest <- function(programme, testName, comparisonMetric, threshold, mini
       SourceEndRow=SourceEndRow,
       SourceColumnsToInclude=SourceColumnsToInclude,
       SourceHeaderValues=SourceHeaderValues,
+      SourceSheet=SourceSheet,
       
       HubDataPath=HubDataPath,
       HubDataFileName=HubDataFileName,
       HubHeaderRow=HubHeaderRow,
       HubEndRow=HubEndRow,
       HubColumnsToInclude=HubColumnsToInclude,
-      HubHeaderValues=HubHeaderValues
+      HubHeaderValues=HubHeaderValues,
+      HubSheet=HubSheet
     )
     
     if(is.character(result)) {
@@ -1088,8 +1114,8 @@ runSingleTest <- function(programme, testName, comparisonMetric, threshold, mini
 runTestsFromDefinitionSheet <- function() {
   
   # read all the tests from the Excel Sheet
-  text14 <- rep("text",20)
-  testList <- tests <- read_excel(testsFile, col_types=text14, na="", skip=28, col_names=FALSE)
+  text14 <- rep("text",22)
+  testList <- tests <- read_excel(testsFile, col_types=text14, na="", skip=29, col_names=FALSE)
   
   # find last row of data
   if( ! is.na( which(is.na(testList[,1]))[1] ) ) {
@@ -1114,17 +1140,19 @@ runTestsFromDefinitionSheet <- function() {
         
         SourceDataPath=testList[i,9],
         SourceDataFileName=testList[i,10],
-        SourceHeaderRow=testList[i,11],
-        SourceEndRow=testList[i,12],
-        SourceColumnsToInclude=testList[i,13],
-        SourceHeaderValues=testList[i,14],
+        SourceSheet=testList[i,11],
+        SourceHeaderRow=testList[i,12],
+        SourceEndRow=testList[i,13],
+        SourceColumnsToInclude=testList[i,14],
+        SourceHeaderValues=testList[i,15],
         
-        HubDataPath=testList[i,15],
-        HubDataFileName=testList[i,16],
-        HubHeaderRow=testList[i,17],
-        HubEndRow=testList[i,18],
-        HubColumnsToInclude=testList[i,19],
-        HubHeaderValues=testList[i,20]
+        HubDataPath=testList[i,16],
+        HubDataFileName=testList[i,17],
+        HubSheet=testList[i,18],
+        HubHeaderRow=testList[i,19],
+        HubEndRow=testList[i,20],
+        HubColumnsToInclude=testList[i,21],
+        HubHeaderValues=testList[i,22]
       )
     } else if (is.character(testList[i,1]) & testList[i,1] == 'Example') {
       logToFile(testList[i,1],testList[i,3], "Skipped", paste("this line in the tests file is an example and will not be run.", sep="") )
@@ -1194,6 +1222,7 @@ if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
       
       SourceDataPath=formattedArgs["SourceDataConnectionString"],
       SourceDataFileName=formattedArgs["SourceDataFileName"],
+      SourceSheet=formattedArgs["SourceSheet"],
       SourceHeaderRow=formattedArgs["SourceDataHeaderRowIdentifier"],
       SourceEndRow=formattedArgs["SourceDataEndRowIdentifier"],
       SourceColumnsToInclude=formattedArgs["SourceDataColumnsToInclude"],
@@ -1201,6 +1230,7 @@ if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
       
       HubDataPath=formattedArgs["HubDataConnectionString"],
       HubDataFileName=formattedArgs["HubDataFileName"],
+      HubSheet=formattedArgs["HubSheet"],
       HubHeaderRow=formattedArgs["HubDataHeaderRowIdentifier"],
       HubEndRow=formattedArgs["HubDataEndRowIdentifier"],
       HubColumnsToInclude=formattedArgs["HubDataColumnsToInclude"],
