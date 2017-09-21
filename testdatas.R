@@ -4,7 +4,8 @@ currentPath <- 'C:/HiltonGuestShare/Hubby' # 'C:/Users/thomas.hamblin/Documents/
 # this is the filepath to the test data file
 testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
 # This is the directory the output file will be saved to
-outputPath <- '//hiltonagg01/hiltonagg01data/Box Sync/HiltonHubSanityTests/' # paste(currentPath, '/output/', sep="") # 
+#outputPath <- '//hiltonagg01/hiltonagg01data/Box Sync/HiltonHubSanityTests/' # paste(currentPath, '/output/', sep="") # 
+outputPath <- '//hiltonagg01/hiltonagg01data/PowerBIOneDrive/OneDrive - Rakuten Attribution/Developers/HiltonHubSanityTests/'
 # The outpt filename will be constructed as {THIS FILENAME VALUE}_YYYY-MM-DD.csv, where YYYY_MM_DD is the run date
 outputFileName <- 'HiltonHubSanityTests'
 # This is the directory where the package will look for sql files if they are named the same as TestName and the column is empty for that test
@@ -70,6 +71,7 @@ writeTestResult <- function(
   
   fileName <-  paste(outputFileName, '_', format(runStartTime, "%Y-%m-%dT%H-%M"), '.csv', sep="")
   filePath <-  paste(outputPath, fileName, sep="")
+  dateTime <- format(runStartTime,"%Y-%m-%d %H:%M:%OS")
   
   fileList <- list.files(outputPath)
   
@@ -78,7 +80,7 @@ writeTestResult <- function(
     logToFile(programme, testName, 'Error', 'Writing Error: Output is not in data.table format - check package run through with input data')
     
   } else {
-    
+    result[,'DateTime' := dateTime]
     result[,Programme := programme]
     result[,'Test Name' := testName]
     result[,'Difference Threshold' := threshold]
@@ -87,6 +89,7 @@ writeTestResult <- function(
     
     # output column order
     testcols <- c(
+      "DateTime",
       "Programme",
       "Test Name",
       "Percentage Difference Threshold",
@@ -339,12 +342,7 @@ getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE,s
   #     data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- sapply(data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))], function(x) {as.character(x)})
   # }
   
-  #format dates in header if necessary
-  if(isTRUE(headerValues)) {
-    for(i in 2:ncol(data)) {
-      colnames(data)[i] <- gsub("(^|[^0-9])0+", "\\1", format(as.Date(as.Date('1900-01-01')+as.numeric(colnames(data)[i])-2), "X%m.%d.%Y"), perl = TRUE)
-    }
-  }
+  
   
   
   return( data )
@@ -376,7 +374,7 @@ getCSVFile <- function(filepath, skip=FALSE, header=FALSE) {
 
 
 
-getLocalData <- function(programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet) {
+getLocalData <- function(programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet,expectedDateFormats) {
   
   
   # default HubEndrow vlaue if empty character is passed
@@ -427,10 +425,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   
   removeHeaderRow <- TRUE
   
-  # don't skip the header
-  if(isTRUE(headerValues)) { 
-    #removeHeaderRow <- FALSE
-  }
+  
   
   
   # get data file
@@ -516,6 +511,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     #removeHeaderRow <- TRUE
   }
   
+  
   # strip off excess rows
   # data may have multiple uneeded rows - so strip off any that aren't part of the test
   data <- data[headerRow:endRow,]
@@ -527,6 +523,17 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     # remove the headers row
     data <- data[-1,]
   }
+  
+  #format dates in header if necessary
+  if(isTRUE(headerValues)) {
+    for(i in 2:ncol(data)) {
+      colnames(data)[i] = convertDates(colnames(data)[i],expectedDateFormats,programme,testName,hubOrSource)
+      #if (!grepl('/',colnames(data)[i])) { #coerce excel dates if they exist
+      #colnames(data)[i] <- gsub("(^|[^0-9])0+", "\\1", format(as.Date(as.Date('1900-01-01')+as.numeric(colnames(data)[i])-2), "X%m.%d.%Y"), perl = TRUE)
+      #}
+    }
+  }
+  
   
   
   # log filename used
@@ -602,7 +609,7 @@ getFTPData <- function(programme, testName, hubOrSource, filepath, filename, hea
     
   }
   
-  data <- getLocalData( programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet )
+  data <- getLocalData( programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet,expectedDateFormats )
   
   if(is.null(data)) {
     logToFile(programme,testName,"Error", paste(hubOrSource,' The file was downloaded but can no longer be accessed - please check the permissions on the temp folder: ', tempFilesPath, sep=""))
@@ -663,7 +670,7 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
     
   } else {
     # dunno what it is try open it as a file
-    data <- getLocalData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow, headerValues, sheet)
+    data <- getLocalData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow, headerValues, sheet,expectedDateFormats)
     
   }
   
