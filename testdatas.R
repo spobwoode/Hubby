@@ -13,7 +13,7 @@
 
 
 # this is the filepath where i have been building all the tests
-currentPath <- 'C:/HiltonGuestShare/Hubby' # 'C:/Users/thomas.hamblin/Documents/Hubby' # 
+currentPath <- 'C:/Users/thomas.hamblin/Documents/Hubby' # 'C:/HiltonGuestShare/Hubby' # 
 #currentPath <- getwd()
 
 # empty list of temp files - this will be filled as the tests are run,
@@ -1100,8 +1100,8 @@ testDatas <- function(
   }
   
   
-  sourceData[[comparisonMetric]] <- suppressWarnings(as.numeric(sourceData[[comparisonMetric]]))
-  hubData[[comparisonMetric]] <- suppressWarnings(as.numeric(hubData[[comparisonMetric]]))
+  sourceData[[comparisonMetric]] <- suppressWarnings(as.numeric(gsub("[^0-9\\.\\, a-fA-F\\-]","",sourceData[[comparisonMetric]])))
+  hubData[[comparisonMetric]] <- suppressWarnings(as.numeric(gsub("[^0-9\\.\\, a-fA-f\\-]","",hubData[[comparisonMetric]])))
   
   
   # select all columns that are not the comparison column
