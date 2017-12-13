@@ -271,8 +271,8 @@ sqlwriteTestResult <- function(
     colnames(result)[which(colnames(result) == "Comparison Metric Key")] <- "logComparisonMetricKey"
 
     # looks like these are labelled in reverse within the DB.
-    colnames(result)[which(colnames(result) == "Hub Comparison Metric Value")] <- "logSQLComparisonMetricValue"
-    colnames(result)[which(colnames(result) == "Source Comparison Metric Value")] <- "logSourceComparisonMetricValue"
+    colnames(result)[which(colnames(result) == "Hub Comparison Metric Value")] <- "logSourceComparisonMetricValue"
+    colnames(result)[which(colnames(result) == "Source Comparison Metric Value")] <- "logSQLComparisonMetricValue"
 
     # output column order
     testcols <- c(
