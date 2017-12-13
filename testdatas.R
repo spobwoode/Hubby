@@ -1,33 +1,68 @@
+#######
+# If you're running this in R Studio on windows please ensure the file has been loaded with the correct encoding
+#
+# If thats not the case then hit File -> Reopen With Encoding...  and select UTF-8
+#
+# ï»¿   <--- this should appear as an i with two dots, two small >'s and an upside down question mark :)
+#######
+
+
+
+
+
+
+
 # this is the filepath where i have been building all the tests
 currentPath <- 'C:/HiltonGuestShare/Hubby' # 'C:/Users/thomas.hamblin/Documents/Hubby' # 
 #currentPath <- getwd()
-# this is the filepath to the test data file
-testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
-# This is the directory the output file will be saved to
-#outputPath <- '//hiltonagg01/hiltonagg01data/Box Sync/HiltonHubSanityTests/' # paste(currentPath, '/output/', sep="") # 
-outputPath <- '//hiltonagg01/hiltonagg01data/PowerBIOneDrive/OneDrive - Rakuten Attribution/Developers/HiltonHubSanityTests/'
-# The outpt filename will be constructed as {THIS FILENAME VALUE}_YYYY-MM-DD.csv, where YYYY_MM_DD is the run date
-outputFileName <- 'HiltonHubSanityTests'
-# This is the directory where the package will look for sql files if they are named the same as TestName and the column is empty for that test
-sqlPath <- paste(currentPath, '/sql/', sep="")
-# This is the directory for the log file which is generated when the tests are run
-logFilePath <- paste(currentPath, '/log/', sep="")
-# This is the directory for the temp files
-tempFilesPath <- paste(currentPath, '/tmp/', sep="")
-# the time the test script was
-runStartTime <- Sys.time()
-# this is the format that all dates will be coerced to.
-coercedDateFormat <- '%Y-%m-%d'
 
 # empty list of temp files - this will be filled as the tests are run,
 # and used to delete the temp files downloaded from external sources
 tempFiles <- list()
 cleanupList <- list()
 
+# this is the filepath to the test definitions
+testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
+
+##########
+#### ALL OF THE BELOW CAN NOW BE OVERRIDDEN IN THE TEST SHEET OR IN CMD LINE PARAMS
+#### THESE ARE USED AS DEFAULT VALUES IF THEY ARE NOT SPECIFIED AS ARGUMENTS
+
+
+# outputType of "File" or "SQL"
+outputType <- 'File'
+
+# This is the directory the output file will be saved to
+# or the sql connection string to access the the output database
+#outputPath <- '//hiltonagg01/hiltonagg01data/Box Sync/HiltonHubSanityTests/' # paste(currentPath, '/output/', sep="") # 
+outputPath <- '//hiltonagg01/hiltonagg01data/PowerBIOneDrive/OneDrive - Rakuten Attribution/Developers/HiltonHubSanityTests/'
+
+# The outpt filename will be constructed as {THIS FILENAME VALUE}_YYYY-MM-DD.csv, where YYYY_MM_DD is the run date
+# or the sql table name
+outputFileName <- 'HiltonHubSanityTests'
+
+# This is the directory where the package will look for sql files if they are named the same as TestName and the column is empty for that test
+sqlPath <- paste(currentPath, '/sql/', sep="")
+
+# This is the directory for the log file which is generated when the tests are run
+logFilePath <- paste(currentPath, '/log/', sep="")
+
+# This is the directory for the temp files
+tempFilesPath <- paste(currentPath, '/tmp/', sep="")
+
+# the time the test script was
+runStartTime <- Sys.time()
+
+# this is the format that all dates will be coerced to.
+coercedDateFormat <- '%Y-%m-%d'
 
 # set to 1 to have the programme print everything its doing to the console as well as the log.
 # set to 0 to quiet down
-verbose <- 1
+# this can be overriden with the cmd line params or in the test definitions file
+verbose <- 0
+
+####
+##########
 
 
 
@@ -49,9 +84,9 @@ installPackages('data.table')
 installPackages('readxl')
 # curl library to get file names of ftp files
 installPackages('RCurl')
-# janitor for data cleaning funcitons
+# janitor for data cleaning functions
 installPackages("janitor")
-# janitor for data cleaning funcitons
+# janitor for data cleaning functions
 installPackages("stringr")
 
 
@@ -81,7 +116,7 @@ writeTestResult <- function(
     
   } else {
     result[,'DateTime' := dateTime]
-    result[,Programme := programme]
+    result[,'Programme' := programme]
     result[,'Test Name' := testName]
     result[,'Difference Threshold' := threshold]
     result[,'Percentage Difference Threshold' := minimumThreshold]
@@ -126,7 +161,152 @@ writeTestResult <- function(
 }
 
 
+sanitizeSQLStringInput <- function(str) {
+  if(is.na(str) | is.null(str)) {
+    return('NULL')
+  } else {
+    return(paste("'", gsub("'","''",as.character(str)), "'", sep=""))
+  }
+}
 
+
+sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, insertRowLimit=500) {
+  if(!is.data.table(table)) {
+    return()
+  } else {
+
+    if(all(grepl("^[a-zA-Z0-9\\.\\[\\]]+$",tablename))) {
+      lastRow = nrow(table)
+
+      insertIntoStatment <- paste(
+        'Insert Into ', tablename, ' (',
+         'logTestDateTime, ',
+         'logDateId',
+         'logProgramme, ',
+         'logTestName, ',
+         'logPercentageDifferenceThreshold, ',
+         'logDifferenceThreshold, ',
+         'logDifference, ',
+         'logPercentageDifference, ',
+         'logTestPassed, ',
+         'logComparisonMetric, ',
+         'logComparisonMetricKey, ',
+         'logSQLComparisonMetricValue, ',
+         'logSourceComparisonMetricValue ',
+        ') Values ',
+        sep=""
+      )
+
+      for(i in positionindex:min(insertRowLimit + positionindex - 1,lastRow)) {
+        if(i != positionindex) {
+          insertIntoStatment <- paste(insertIntoStatment, ', ', sep="")
+        }
+        insertIntoStatment <- paste(insertIntoStatment,
+          '(',
+            sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
+            sanitizeSQLStringInput(table$logDateId[i]),                         ",",
+            sanitizeSQLStringInput(table$logProgramme[i]),                      ",",
+            sanitizeSQLStringInput(table$logTestName[i]),                       ",",
+            sanitizeSQLStringInput(table$logPercentageDifferenceThreshold[i]),  ",",
+            sanitizeSQLStringInput(table$logDifferenceThreshold[i]),            ",",
+            sanitizeSQLStringInput(table$logDifference[i]),                     ",",
+            sanitizeSQLStringInput(table$logPercentageDifference[i]),           ",",
+            sanitizeSQLStringInput(table$logTestPassed[i]),                     ",",
+            sanitizeSQLStringInput(table$logComparisonMetric[i]),               ",",
+            sanitizeSQLStringInput(table$logComparisonMetricKey[i]),            ",",
+            sanitizeSQLStringInput(table$logSQLComparisonMetricValue[i]),       ",",
+            sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),
+          ')',
+          sep=""
+        )
+      }
+
+      sqlQuery(dbconn, insertIntoStatment)
+      # print(insertIntoStatment)
+
+      if(lastRow > insertRowLimit + positionindex-1) {
+        sqlBatchInsertResults(dbconn, table, tablename, insertRowLimit + positionindex)
+      }
+    }
+  }
+}
+
+
+
+sqlwriteTestResult <- function(
+  programme,
+  testName,
+  threshold,
+  minimumThreshold,
+  comparisonMetric,
+  result
+) {
+
+  if( ! is.data.table(result) ) {
+    
+    logToFile(programme, testName, 'Error', 'Writing Error: Output is not in data.table format - check package run through with input data')
+    
+  } else {
+    
+    connectionString <- outputPath
+    tablename <- outputFileName
+    dateTime <- format(runStartTime,"%Y-%m-%d %H:%M:%OS")
+    logdateid <- format(runStartTime,"%Y%m%d")
+
+    # temptablename <- paste('#TMPHubby',format(runStartTime, "%Y%m%d%H%M%OS"), sep="")
+
+    # add static row values
+    result[,'logTestDateTime' := dateTime]
+    result[,'logTestDateTime' := dateTime]
+    result[,'logProgramme' := programme]
+    result[,'logTestName' := testName]
+    result[,'logDifferenceThreshold' := threshold]
+    result[,'logPercentageDifferenceThreshold' := minimumThreshold]
+    result[,'logComparisonMetric' := comparisonMetric]
+
+    # change names to match the SQL columns
+    colnames(result)[which(colnames(result) == 'Percentage Difference')] <- "logPercentageDifference"
+    colnames(result)[which(colnames(result) == 'Difference')] <- "logDifference"
+    colnames(result)[which(colnames(result) == 'Test Passed?')] <- "logTestPassed"
+    colnames(result)[which(colnames(result) == "Comparison Metric Key")] <- "logComparisonMetricKey"
+
+    # looks like these are labelled in reverse within the DB.
+    colnames(result)[which(colnames(result) == "Hub Comparison Metric Value")] <- "logSQLComparisonMetricValue"
+    colnames(result)[which(colnames(result) == "Source Comparison Metric Value")] <- "logSourceComparisonMetricValue"
+
+    # output column order
+    testcols <- c(
+      "logTestDateTime",
+      "logProgramme",
+      "logTestName",
+      "logPercentageDifferenceThreshold",
+      "logDifferenceThreshold",
+      "logDifference",
+      "logPercentageDifference",
+      "logTestPassed",
+      "logComparisonMetric",
+      "logComparisonMetricKey",
+      "logSQLComparisonMetricValue",
+      "logSourceComparisonMetricValue"
+    )
+
+    # remove uneeded columns
+    result <- result[,..testcols]
+
+    # open up the db connection
+    db <- odbcDriverConnect(paste("driver={SQL Server};", connectionString, sep=""))
+    
+    # shove the test data on the end of the table
+    #    sqlSave(db, result, tablename=tablename, rownames=FALSE, append=TRUE, safer=TRUE, test=TRUE, verbose=TRUE)
+    sqlBatchInsertResults( db, result, tablename)
+
+    # close up the connection
+    odbcClose( db )
+
+  }
+
+  return( 'SUCCESS' )
+}
 
 
 
@@ -187,24 +367,25 @@ coalesce2 <- function(...) {
 }
 
 
+
 # Checks if a column is in a listed date format
 # use with lapply
 # All or nothing (all vlaues are dates or no values are dates)
-convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
+convertDates <- function(inputData, formats=NA, programme, testName, hubOrSource) {
   
   
-  # checks to see if the data is all in an excel date format (eg '42568') and converts it
-  if (all(grepl('^[0-9]{5}$',data))) {
-    data <- do.call(c,lapply(as.numeric(data),excel_numeric_to_date))
+  # checks to see if the inputData is all in an excel date format (eg '42568') and converts it
+  if (all(grepl('^[0-9]{5}$',inputData))) {
+    inputData <- do.call(c,lapply(as.numeric(inputData),excel_numeric_to_date))
   }
   
   # this is a POSIX date field already - nothing to see here.
-  if(any(class(data) == "POSIXt")) {
-    return( format(as.Date(data), format=coercedDateFormat) )
+  if(any(class(inputData) == "POSIXt")) {
+    return( format(as.Date(inputData), format=coercedDateFormat) )
   }
   
   
-  posixed <- format(as.Date(rep(NA,length(data))), format=coercedDateFormat)
+  posixed <- format(as.Date(rep(NA,length(inputData))), format=coercedDateFormat)
   
   
   # try the format split if its there
@@ -213,7 +394,7 @@ convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
     formatSplit <- do.call(rbind, formatSplit)
     
     for(i in 1:length(formatSplit)) {
-      posixed <- coalesce2(posixed, format(as.Date( as.character(data), format=formatSplit[i]), format=coercedDateFormat) )
+      posixed <- coalesce2(posixed, format(as.Date( as.character(inputData), format=formatSplit[i]), format=coercedDateFormat) )
       
       if(!any(is.na(posixed))) {
         return( posixed )
@@ -225,9 +406,9 @@ convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
   
   
   posixed <- coalesce2(posixed, tryCatch({
-    return( format(as.Date(as.POSIXlt( as.character(data) )), format=coercedDateFormat) )
+    return( format(as.Date(as.POSIXlt( as.character(inputData) )), format=coercedDateFormat) )
   }, error = function (err){ 
-    return( format(as.Date(rep(NA,length(data))), format=coercedDateFormat) )
+    return( format(as.Date(rep(NA,length(inputData))), format=coercedDateFormat) )
   }));
   
   
@@ -238,7 +419,7 @@ convertDates <- function(data, formats=NA, programme, testName, hubOrSource) {
   
   
   # no formats specified or no formats matched - just return the data.
-  return ( data )
+  return ( inputData )
   
   
 }
@@ -327,25 +508,25 @@ getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE,s
   
   # read excel data file
   # read it in once to get the number of columns (this is ridiculous there must be a better way)
-  data <- read_excel(filepath,col_names=FALSE,skip=skip,sheet=sheet)
+  excelData <- read_excel(filepath,col_names=FALSE,skip=skip,sheet=sheet)
   
   # read it in again but set all the columns to text
-  textRep <- rep("text",ncol(data))
+  textRep <- rep("text",ncol(excelData))
   
   if(castDates == TRUE) {
-    textRep[which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- 'date'
+    textRep[which(sapply(excelData,function(x) inherits(x, 'POSIXt' )))] <- 'date'
   }
   
-  data <- read_excel(filepath, col_types=textRep, na="", col_names=FALSE, skip=skip, sheet=sheet)
+  excelData <- read_excel(filepath, col_types=textRep, na="", col_names=FALSE, skip=skip, sheet=sheet)
   
-  # if(any(sapply(data,function(x) inherits(x, 'POSIXt' )))) {
-  #     data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))] <- sapply(data[,which(sapply(data,function(x) inherits(x, 'POSIXt' )))], function(x) {as.character(x)})
+  # if(any(sapply(excelData,function(x) inherits(x, 'POSIXt' )))) {
+  #     excelData[,which(sapply(excelData,function(x) inherits(x, 'POSIXt' )))] <- sapply(excelData[,which(sapply(excelData,function(x) inherits(x, 'POSIXt' )))], function(x) {as.character(x)})
   # }
   
   
   
   
-  return( data )
+  return( excelData )
   
 }
 
@@ -367,8 +548,13 @@ getCSVFile <- function(filepath, skip=FALSE, header=FALSE) {
       colnames <- c(colnames, paste("V", i+1,sep=""))
     }
   }
+
+  csvData <- read.csv(filepath,stringsAsFactors=FALSE,header=FALSE,skip=skip,fill=TRUE,col.names=colnames)
+
+  # Strip out the utf-8 BOM
+  csvData[1,1] <- gsub("^\\ï\\»\\¿", "", csvData[1,1])
   
-  return( read.csv(filepath,stringsAsFactors=FALSE,header=FALSE,skip=skip,fill=TRUE,col.names=colnames) )
+  return( csvData )
   
 }
 
@@ -432,12 +618,12 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   if(grepl('\\.csv$',filename)) {
     
     #read csv data file, chop off the top of the file if necesary
-    data <- getCSVFile(dataLocation,skip=skipRows,header=headerValues)
+    localData <- getCSVFile(dataLocation,skip=skipRows,header=headerValues)
     
   } else if(grepl('\\.xlsx?$',filename)) {
     
     # read excel data file
-    data <- suppressWarnings(getExcelFile(dataLocation,skip=skipRows,headerValues=headerValues,sheet=sheet))
+    localData <- suppressWarnings(getExcelFile(dataLocation,skip=skipRows,headerValues=headerValues,sheet=sheet))
     # the read_excel library automatically takes the header row out if its all lined up right
   }
   
@@ -446,10 +632,10 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   if(!is.na(endRowNumber)) {
     # if the endRow is -1 just use the whole file.
     if(endRowNumber < 0) {
-      endRow <- nrow(data[,1])
+      endRow <- nrow(localData[,1])
       if(is.null(endRow)) {
         # nrow sometimes returns null occasionally instead of the length.
-        endRow <- length(data[,1])
+        endRow <- length(localData[,1])
       }
     } else {
       endRow <- endRowNumber
@@ -457,7 +643,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   } 
   # its a string row identfier instead of a row number
   else {
-    endRowNumber <- which(data[,1] == endRow) -1
+    endRowNumber <- which(localData[,1] == endRow) -1
     if(length(endRowNumber) == 0) {
       logToFile(programme,testName,"Error",paste(hubOrSource ,' End Row identifier "', endRow, '" is not present in column 1 of the source data file. Check correct file/identifier has been used', sep=""))
       return(   )
@@ -466,17 +652,17 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     }
   }
   
-  # print(nrow(data[,1]))
+  # print(nrow(localData[,1]))
   # print(endRow)
   # print(endRowNumber)
   
   #take the top off the file up to the header row
   if(is.na(headerRowNumber)) {
     # headerRow is not a number
-    if(!(headerRow %in% names(data))) {
+    if(!(headerRow %in% names(localData))) {
       # pull the row number where the identifier appears
       
-      rowBeforeHeader <- which(data[,1] == headerRow) - 1
+      rowBeforeHeader <- which(localData[,1] == headerRow) - 1
       if(length(rowBeforeHeader) == 0) {
         logToFile(programme,testName,"Error",paste(hubOrSource ,' Header Row identifier "', headerRow, '" is not present in column 1 of the data file. Check correct file/identifier has been used', sep=""))
         return(   )
@@ -500,36 +686,40 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   }
   
   
-  
   if(grepl('\\.xlsx?$',filename)) {
     
     skipRows <- rowBeforeHeader
     
     # read excel data file again so that dates are cast properly.
-    data <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues,sheet=sheet))
+    localData <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues,sheet=sheet))
     
     #removeHeaderRow <- TRUE
+  } else if( grepl('\\.csv$',filename) & any(rowBeforeHeader > 1) & any(skipRows == FALSE)) {
+
+    headerRow <- rowBeforeHeader + 1
+    endRow <- endRow + rowBeforeHeader
+
   }
   
   
   # strip off excess rows
   # data may have multiple uneeded rows - so strip off any that aren't part of the test
-  data <- data[headerRow:endRow,]
+  localData <- localData[headerRow:endRow,]
   
   # remove header line for CSV files
   if(removeHeaderRow) {
     # take column names row off now that its not needed
-    names(data) <- data[1,]
+    names(localData) <- localData[1,]
     # remove the headers row
-    data <- data[-1,]
+    localData <- localData[-1,]
   }
   
   #format dates in header if necessary
   if(isTRUE(headerValues)) {
-    for(i in 2:ncol(data)) {
-      colnames(data)[i] = convertDates(colnames(data)[i],expectedDateFormats,programme,testName,hubOrSource)
-      #if (!grepl('/',colnames(data)[i])) { #coerce excel dates if they exist
-      #colnames(data)[i] <- gsub("(^|[^0-9])0+", "\\1", format(as.Date(as.Date('1900-01-01')+as.numeric(colnames(data)[i])-2), "X%m.%d.%Y"), perl = TRUE)
+    for(i in 2:ncol(localData)) {
+      colnames(localData)[i] = convertDates(colnames(localData)[i],expectedDateFormats,programme,testName,hubOrSource)
+      #if (!grepl('/',colnames(localData)[i])) { #coerce excel dates if they exist
+      #colnames(localData)[i] <- gsub("(^|[^0-9])0+", "\\1", format(as.Date(as.Date('1900-01-01')+as.numeric(colnames(localData)[i])-2), "X%m.%d.%Y"), perl = TRUE)
       #}
     }
   }
@@ -539,7 +729,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   # log filename used
   logToFile(programme,testName, "Processing",paste('Used file ', dataLocation, ' for ',  hubOrSource, ' Data', sep=""))
   
-  return( data )
+  return( localData )
   
   
 }
@@ -609,14 +799,14 @@ getFTPData <- function(programme, testName, hubOrSource, filepath, filename, hea
     
   }
   
-  data <- getLocalData( programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet,expectedDateFormats )
+  ftpData <- getLocalData( programme, testName, hubOrSource, filepath, filename, headerRow, endRow, headerValues, sheet,expectedDateFormats )
   
-  if(is.null(data)) {
+  if(is.null(ftpData)) {
     logToFile(programme,testName,"Error", paste(hubOrSource,' The file was downloaded but can no longer be accessed - please check the permissions on the temp folder: ', tempFilesPath, sep=""))
     return(  )
   } else {
     
-    return( data )
+    return( ftpData )
   }
 }
 
@@ -645,10 +835,10 @@ getSQLData <- function(programme, testName, hubOrSource, connectionString, query
   ##### TODO: Try catches round this
   # acquire SQL Datas
   db <- odbcDriverConnect(paste('driver={SQL Server};',connectionString,sep=""))
-  data <- sqlQuery( db, SQLQuery, stringsAsFactors=FALSE )
+  sqlData <- sqlQuery( db, SQLQuery, stringsAsFactors=FALSE )
   odbcClose( db )
   
-  return( data )
+  return( sqlData )
 }
 
 
@@ -662,19 +852,19 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
   # Detect what data we're looking at
   if(grepl('^s?ftp://', connectionPathString)) {
     # file is in an ftp location, download it and process it
-    data <- getFTPData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow)
+    retrievedData <- getFTPData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow)
     
   } else if ( grepl("((server|database|uid|pwd)=[^;]+(;\\s*)?){4}", connectionPathString) ) {
     # matches the server connection query string format
-    data <- getSQLData(programme, testName, hubOrSource, connectionString=connectionPathString, queryFilePath=fileName)
+    retrievedData <- getSQLData(programme, testName, hubOrSource, connectionString=connectionPathString, queryFilePath=fileName)
     
   } else {
     # dunno what it is try open it as a file
-    data <- getLocalData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow, headerValues, sheet,expectedDateFormats)
+    retrievedData <- getLocalData(programme, testName, hubOrSource, connectionPathString, fileName, headerRow, endRow, headerValues, sheet,expectedDateFormats)
     
   }
   
-  if(is.null(data)) {
+  if(is.null(retrievedData)) {
     # no datas returned
     return (  )
   }
@@ -693,27 +883,27 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
       return(  )
     }
     
-    if(any(columnsToIncludeProcessed > length(data[1,]))) {
+    if(any(columnsToIncludeProcessed > length(retrievedData[1,]))) {
       logToFile(programme,testName, "Error",paste("Initialisation Error: ", hubOrSource ,"ColumnsToInclude specifies column numbers that don't exist", sep=""))
       return(  )
     } else {
-      data <- data[,columnsToIncludeProcessed]
+      retrievedData <- retrievedData[,columnsToIncludeProcessed]
     }
   }
   
   
   # check if any columns can be converted to dates
-  data <- sapply(data, convertDates, formats=expectedDateFormats ,programme,testName,hubOrSource)
+  retrievedData <- sapply(retrievedData, convertDates, formats=expectedDateFormats ,programme,testName,hubOrSource)
   
   # print("")
-  # print("Final data")
+  # print("Final retrievedData")
   # print("")
-  # print(head(data))
-  # print(tail(data))
+  # print(head(retrievedData))
+  # print(tail(retrievedData))
   # print("")
   
   
-  return( data )
+  return( retrievedData )
 }
 
 
@@ -898,6 +1088,9 @@ testDatas <- function(
   
   if(!(comparisonMetric %in% colnames(sourceData))) {
     logToFile(programme,testName, "Error","Initialisation Error: comparison column not found in source data file.")
+
+    # print(head(sourceData))
+
     return(  )
   }
   if(!(comparisonMetric %in% colnames(hubData))) {
@@ -926,7 +1119,7 @@ testDatas <- function(
   ##
   ##   JOIN DATA SOURCES
   ##
-  #####
+  ###
   
   
   # left join sourceData to hubData - i.e for all columns of sourceData join values of hubData or NA if it is not matched
@@ -1000,24 +1193,46 @@ testDatas <- function(
   colnames(sourceData)[which(colnames(sourceData) == 'ValueDiff')] <- "Difference"
   colnames(sourceData)[which(colnames(sourceData) == 'PercentageDiffPass')] <- "Test Passed?"
   
-  # log a complete message
-  logToFile(programme,testName, "Success","Test Completed - writing to file...")
   
-  
-  # write test result to output file
-  writeResultStatus <- writeTestResult(
-    programme,
-    testName,
-    threshold,
-    minimumThreshold,
-    comparisonMetric,
-    sourceData
-  )
+  if(outputType == 'File') {
+
+    # log a complete message
+    logToFile(programme,testName, "Success","Test Completed - writing to file...")
+
+    # write test result to output file
+    writeResultStatus <- writeTestResult(
+      programme,
+      testName,
+      threshold,
+      minimumThreshold,
+      comparisonMetric,
+      sourceData
+    )
+  } else if (outputType == 'SQL') {
+
+
+    # log a complete message
+    logToFile(programme,testName, "Success","Test Completed - inserting into SQL table")
+
+    # write test result to output file
+    writeResultStatus <- sqlwriteTestResult(
+      programme,
+      testName,
+      threshold,
+      minimumThreshold,
+      comparisonMetric,
+      sourceData
+    )
+  } else {
+
+    # log a complete message
+    logToFile(programme,testName, "Error",'Could not write results, unrecognised output type. Ensure the value is either "File" or "SQL"')
+  }
   
   if( !is.null(writeResultStatus) ) {
     logToFile(programme,testName, "Success","Test Completed - output file additions complete")
   } else {
-    logToFile(programme,testName,"Error",'Test Completed - Writing to file failed')
+    logToFile(programme,testName,"Error",'Test Completed - Writing results failed')
   }
   
   
@@ -1118,11 +1333,71 @@ runSingleTest <- function(programme, testName, comparisonMetric, threshold, mini
 
 
 
+# checks if a string ends with a particular value.
+# we're using it to check if filename arguments end with a slash
+strEndsWith <- function(haystack, needle)
+{
+  hl <- nchar(haystack)
+  nl <- nchar(needle)
+  if(nl>hl)
+  {
+    return(F)
+  } else
+  {
+    return(substr(haystack, hl-nl+1, hl) == needle)
+  }
+}
+
+# make sure filepaths that will have file names appended all end with a forward slash.
+appendForwardSlash <- function(str) {
+  if(!strEndsWith(str, '/')) {
+    str <- paste(str,'/',sep="")
+  }
+  return(str)
+}
+
+
 runTestsFromDefinitionSheet <- function() {
   
   # read all the tests from the Excel Sheet
-  text14 <- rep("text",22)
-  testList <- tests <- read_excel(testsFile, col_types=text14, na="", skip=29, col_names=FALSE)
+  text22 <- rep("text",22)
+  testList <- read_excel(testsFile, col_types=text22, na="", skip=29, col_names=FALSE, sheet=1)
+
+  globalArguments <- tryCatch({
+    suppressWarnings(read_excel(testsFile, na="", skip=8, col_names=FALSE, sheet=2)[3])
+  }, error=function(err) {
+  });
+
+  if(!is.null(globalArguments) & nrow(globalArguments) > 0) {  #runtime specifics
+    if(globalArguments[1,1] == "1") {
+      verbose <<- 1
+    }
+    if(!is.na(globalArguments[3,1]) & !identical(globalArguments[3,1],'')) {
+      sqlPath <<- appendForwardSlash(as.character(globalArguments[3,1]))
+      
+    }
+    if(!is.na(globalArguments[4,1]) & !identical(globalArguments[4,1],'')) {
+      logFilePath <<- appendForwardSlash(as.character(globalArguments[4,1]))
+      
+    }
+    if(!is.na(globalArguments[5,1]) & !identical(globalArguments[5,1],'')) {
+      tempFilesPath <<- appendForwardSlash(as.character(globalArguments[5,1]))
+    }
+
+    #Output param specifics
+    if(!is.na(globalArguments[7,1]) & !identical(globalArguments[7,1],'')) {
+      outputType <<- as.character(globalArguments[7,1])
+    }
+    if(!is.na(globalArguments[8,1]) & !identical(globalArguments[8,1],'')) {
+      outputPath <<- as.character(globalArguments[8,1])
+      if(!any(grep('database=', outputPath)) ) {
+        outputPath <<- appendForwardSlash(outputPath)
+      }
+    }
+    if(!is.na(globalArguments[9,1]) & !identical(globalArguments[9,1],'')) {
+      outputFileName <<- as.character(globalArguments[9,1])
+    }
+  }
   
   # find last row of data
   if( ! is.na( which(is.na(testList[,1]))[1] ) ) {
@@ -1131,6 +1406,9 @@ runTestsFromDefinitionSheet <- function() {
     lastRow <- nrow(testList)
   }
   
+
+
+
   # TODO: Try catches around this!
   for(i in 1:lastRow) {
     
@@ -1190,9 +1468,11 @@ pivotParamList <- function(cmdargs) {
   lengthArgs <- length(cmdargs)
   
   for(i in 2:lengthArgs) {
-    splitArg <- splitParameter(cmdargs[i])
-    
-    arguments[splitArg[1,1]] <- splitArg[1,2]
+    if(!any(grep('^-\\w+$',cmdargs[i]))){
+      splitArg <- splitParameter(cmdargs[i])
+      
+      arguments[splitArg[1,1]] <- splitArg[1,2]
+    }
   }
   
   return(arguments)
@@ -1203,48 +1483,77 @@ pivotParamList <- function(cmdargs) {
 cmdargs <- commandArgs(trailingOnly=TRUE)
 
 # switch to verbose output if v is passed in the runtime args
-if(length(cmdargs) > 0 & any(grep('-\\w*v', cmdargs[1])) ) {
-  verbose <- 1
-}
+if(length(cmdargs) > 0){
 
+  formattedArgs <- pivotParamList(cmdargs)
 
-# if there are any and the first one is -r then runa  single test
-if (length(cmdargs) > 0 & any(grep('-\\w*r', cmdargs[1]))) {
-  # the -r param tells the script to run as a one off with the rest of the params as
-  # as input values
-  
-  if(length(cmdargs) < 7) {
-    print('Please ensure you have included all required arguments to run a valid test')
-  } else {
-    formattedArgs <- pivotParamList(cmdargs)
-    
-    runSingleTest(
-      programme=formattedArgs["Programme"],
-      testName=formattedArgs["TestName"],
-      comparisonMetric=formattedArgs["ComparisonMetric"],
-      threshold=formattedArgs["Threshold"],
-      minimumThreshold=formattedArgs["MinimumThreshold"],
-      ignoredValues=formattedArgs["IgnoredValues"],
-      expectedDateFormats=formattedArgs["ExepectedDateFormats"],
-      
-      SourceDataPath=formattedArgs["SourceDataConnectionString"],
-      SourceDataFileName=formattedArgs["SourceDataFileName"],
-      SourceSheet=formattedArgs["SourceSheet"],
-      SourceHeaderRow=formattedArgs["SourceDataHeaderRowIdentifier"],
-      SourceEndRow=formattedArgs["SourceDataEndRowIdentifier"],
-      SourceColumnsToInclude=formattedArgs["SourceDataColumnsToInclude"],
-      SourceHeaderValues=formattedArgs["SourceDataHeaderValues"],
-      
-      HubDataPath=formattedArgs["HubDataConnectionString"],
-      HubDataFileName=formattedArgs["HubDataFileName"],
-      HubSheet=formattedArgs["HubSheet"],
-      HubHeaderRow=formattedArgs["HubDataHeaderRowIdentifier"],
-      HubEndRow=formattedArgs["HubDataEndRowIdentifier"],
-      HubColumnsToInclude=formattedArgs["HubDataColumnsToInclude"],
-      HubHeaderValues=formattedArgs["HubDataHeaderValues"]
-    )
+  if( any(grep('-\\w*v', cmdargs[1])) ) {
+    verbose <<- 1
   }
-  
+
+
+  # set global params if they are included as arguments
+  if("DefaultSQLPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultSQLPath"],'')) {
+    sqlPath <<- appendForwardSlash(as.character(formattedArgs["DefaultSQLPath"]))
+  }
+  if("DefaultLogFilePath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultLogFilePath"], '')) {
+    logFilePath <<- appendForwardSlash(as.character(formattedArgs["DefaultLogFilePath"]))
+  }
+  if("DefaultTempFilesPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultTempFilesPath"], '')) {
+    tempFilesPath <<- appendForwardSlash(as.character(formattedArgs["DefaultTempFilesPath"]))
+
+  }
+
+  # set output parameters
+  if("OutputType" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputType"], '')) {
+    outputType <<- as.character(formattedArgs["OutputType"])
+  }
+  if("OutputPath" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputPath"], '')) {
+    outputPath <<- as.character(formattedArgs["OutputPath"])
+    if(!any(grep('database=', outputPath)) & !strEndsWith(outputPath, '/')) {
+      outputPath <<- appendForwardSlash(outputPath)
+    }
+  }
+  if("OutputFileName" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputFileName"], '')) {
+    outputFileName <<- as.character(formattedArgs["OutputFileName"])
+  }
+
+  # if there are any and the first one is -r then run a single test
+  if (any(grep('-\\w*r', cmdargs[1]))) {
+    # the -r param tells the script to run as a one off with the rest of the params as
+    # input values
+    
+    if(length(cmdargs) < 7) {
+      print('Please ensure you have included all required arguments to run a valid test')
+    } else {
+      
+      runSingleTest(
+        programme=formattedArgs["Programme"],
+        testName=formattedArgs["TestName"],
+        comparisonMetric=formattedArgs["ComparisonMetric"],
+        threshold=formattedArgs["Threshold"],
+        minimumThreshold=formattedArgs["MinimumThreshold"],
+        ignoredValues=formattedArgs["IgnoredValues"],
+        expectedDateFormats=formattedArgs["ExepectedDateFormats"],
+        
+        SourceDataPath=formattedArgs["SourceDataConnectionString"],
+        SourceDataFileName=formattedArgs["SourceDataFileName"],
+        SourceSheet=formattedArgs["SourceDataSheet"],
+        SourceHeaderRow=formattedArgs["SourceDataHeaderRowIdentifier"],
+        SourceEndRow=formattedArgs["SourceDataEndRowIdentifier"],
+        SourceColumnsToInclude=formattedArgs["SourceDataColumnsToInclude"],
+        SourceHeaderValues=formattedArgs["SourceDataHeaderValues"],
+        
+        HubDataPath=formattedArgs["HubDataConnectionString"],
+        HubDataFileName=formattedArgs["HubDataFileName"],
+        HubSheet=formattedArgs["HubDataSheet"],
+        HubHeaderRow=formattedArgs["HubDataHeaderRowIdentifier"],
+        HubEndRow=formattedArgs["HubDataEndRowIdentifier"],
+        HubColumnsToInclude=formattedArgs["HubDataColumnsToInclude"],
+        HubHeaderValues=formattedArgs["HubDataHeaderValues"]
+      )
+    }
+ } 
 } else {
   
   # Run it!
@@ -1263,10 +1572,3 @@ if(length(cleanupList) > 0) {
   }
 }
 
-
-
-
-
-
-
-# test cases to consider
