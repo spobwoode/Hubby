@@ -257,7 +257,7 @@ sqlwriteTestResult <- function(
 
     # add static row values
     result[,'logTestDateTime' := dateTime]
-    result[,'logTestDateTime' := dateTime]
+    result[,'logDateId' := logdateid]
     result[,'logProgramme' := programme]
     result[,'logTestName' := testName]
     result[,'logDifferenceThreshold' := threshold]
@@ -277,6 +277,7 @@ sqlwriteTestResult <- function(
     # output column order
     testcols <- c(
       "logTestDateTime",
+      "logDateId",
       "logProgramme",
       "logTestName",
       "logPercentageDifferenceThreshold",
