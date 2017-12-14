@@ -175,13 +175,13 @@ sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, ins
     return()
   } else {
 
-    if(all(grepl("^[a-zA-Z0-9\\.\\[\\]]+$",tablename))) {
+    if(all(grepl("^[a-zA-Z0-9\\.]+$",tablename))) {
       lastRow = nrow(table)
 
       insertIntoStatment <- paste(
         'Insert Into ', tablename, ' (',
          'logTestDateTime, ',
-         'logDateId',
+         'logDateId, ',
          'logProgramme, ',
          'logTestName, ',
          'logPercentageDifferenceThreshold, ',
