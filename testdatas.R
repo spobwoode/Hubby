@@ -13,7 +13,7 @@
 
 
 # this is the filepath where i have been building all the tests
-currentPath <- 'C:/Users/thomas.hamblin/Documents/Hubby' # 'C:/HiltonGuestShare/Hubby' # 
+currentPath <- 'C:/HiltonGuestShare/Hubby' # 'C:/Users/thomas.hamblin/Documents/Hubby' # 
 #currentPath <- getwd()
 
 # empty list of temp files - this will be filled as the tests are run,
@@ -1488,36 +1488,39 @@ if(length(cmdargs) > 0){
 
   formattedArgs <- pivotParamList(cmdargs)
 
+
+
   if( any(grep('-\\w*v', cmdargs[1])) ) {
     verbose <<- 1
   }
 
 
   # set global params if they are included as arguments
-  if("DefaultSQLPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultSQLPath"],'')) {
+  if("DefaultSQLPath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultSQLPath"],'')) {
     sqlPath <<- appendForwardSlash(as.character(formattedArgs["DefaultSQLPath"]))
   }
-  if("DefaultLogFilePath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultLogFilePath"], '')) {
+  if("DefaultLogFilePath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultLogFilePath"], '')) {
     logFilePath <<- appendForwardSlash(as.character(formattedArgs["DefaultLogFilePath"]))
   }
-  if("DefaultTempFilesPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultTempFilesPath"], '')) {
+  if("DefaultTempFilesPath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultTempFilesPath"], '')) {
     tempFilesPath <<- appendForwardSlash(as.character(formattedArgs["DefaultTempFilesPath"]))
 
   }
 
   # set output parameters
-  if("OutputType" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputType"], '')) {
+  if("OutputType" %in% names(formattedArgs) & !identical(formattedArgs["OutputType"], '')) {
     outputType <<- as.character(formattedArgs["OutputType"])
   }
-  if("OutputPath" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputPath"], '')) {
+  if("OutputPath" %in% names(formattedArgs) & !identical(formattedArgs["OutputPath"], '')) {
     outputPath <<- as.character(formattedArgs["OutputPath"])
     if(!any(grep('database=', outputPath)) & !strEndsWith(outputPath, '/')) {
       outputPath <<- appendForwardSlash(outputPath)
     }
   }
-  if("OutputFileName" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputFileName"], '')) {
+  if("OutputFileName" %in% names(formattedArgs) & !identical(formattedArgs["OutputFileName"], '')) {
     outputFileName <<- as.character(formattedArgs["OutputFileName"])
   }
+
 
   # if there are any and the first one is -r then run a single test
   if (any(grep('-\\w*r', cmdargs[1]))) {
