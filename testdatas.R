@@ -1164,8 +1164,8 @@ testDatas <- function(
   sourceData$PercentageDiff <- round(sourceData$PercentageDiff,2)
   
   # change column names to Hub Comparison Metric Value and Source Comparison Metric Value
-  colnames(sourceData)[which(colnames(sourceData) == comparisonMetric)] <- "Hub Comparison Metric Value"
-  colnames(sourceData)[which(colnames(sourceData) == paste("i.",comparisonMetric,sep=""))] <- "Source Comparison Metric Value"
+  colnames(sourceData)[which(colnames(sourceData) == comparisonMetric)] <- "Source Comparison Metric Value"
+  colnames(sourceData)[which(colnames(sourceData) == paste("i.",comparisonMetric,sep=""))] <- "Hub Comparison Metric Value"
   
   #KeyCol <- sourceData[,paste(.SD, collapse="|"), by=c(comparisonMetric)]
   
