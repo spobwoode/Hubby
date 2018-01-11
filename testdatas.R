@@ -3,7 +3,7 @@
 #
 # If thats not the case then hit File -> Reopen With Encoding...  and select UTF-8
 #
-# ï»¿   <--- this should appear as an i with two dots, two small >'s and an upside down question mark :)
+# ﻿   <--- this should appear as an i with two dots, two small >'s and an upside down question mark :)
 #######
 
 
@@ -13,7 +13,7 @@
 
 
 # this is the filepath where i have been building all the tests
-currentPath <- 'C:/HiltonGuestShare/Hubby' # 'C:/Users/thomas.hamblin/Documents/Hubby' # 
+currentPath <- 'C:/HiltonGuestShare/Hubby' # 
 #currentPath <- getwd()
 
 # empty list of temp files - this will be filled as the tests are run,
@@ -22,7 +22,7 @@ tempFiles <- list()
 cleanupList <- list()
 
 # this is the filepath to the test definitions
-testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
+testsFile <- paste(currentPath, '/SourceVHubDataTests_newDec17.xlsx', sep="")
 
 ##########
 #### ALL OF THE BELOW CAN NOW BE OVERRIDDEN IN THE TEST SHEET OR IN CMD LINE PARAMS
@@ -174,56 +174,56 @@ sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, ins
   if(!is.data.table(table)) {
     return()
   } else {
-
+    
     if(all(grepl("^[a-zA-Z0-9\\.]+$",tablename))) {
       lastRow = nrow(table)
-
+      
       insertIntoStatment <- paste(
         'Insert Into ', tablename, ' (',
-         'logTestDateTime, ',
-         'logDateId, ',
-         'logProgramme, ',
-         'logTestName, ',
-         'logPercentageDifferenceThreshold, ',
-         'logDifferenceThreshold, ',
-         'logDifference, ',
-         'logPercentageDifference, ',
-         'logTestPassed, ',
-         'logComparisonMetric, ',
-         'logComparisonMetricKey, ',
-         'logSQLComparisonMetricValue, ',
-         'logSourceComparisonMetricValue ',
+        'logTestDateTime, ',
+        'logDateId, ',
+        'logProgramme, ',
+        'logTestName, ',
+        'logPercentageDifferenceThreshold, ',
+        'logDifferenceThreshold, ',
+        'logDifference, ',
+        'logPercentageDifference, ',
+        'logTestPassed, ',
+        'logComparisonMetric, ',
+        'logComparisonMetricKey, ',
+        'logSQLComparisonMetricValue, ',
+        'logSourceComparisonMetricValue ',
         ') Values ',
         sep=""
       )
-
+      
       for(i in positionindex:min(insertRowLimit + positionindex - 1,lastRow)) {
         if(i != positionindex) {
           insertIntoStatment <- paste(insertIntoStatment, ', ', sep="")
         }
         insertIntoStatment <- paste(insertIntoStatment,
-          '(',
-            sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
-            sanitizeSQLStringInput(table$logDateId[i]),                         ",",
-            sanitizeSQLStringInput(table$logProgramme[i]),                      ",",
-            sanitizeSQLStringInput(table$logTestName[i]),                       ",",
-            sanitizeSQLStringInput(table$logPercentageDifferenceThreshold[i]),  ",",
-            sanitizeSQLStringInput(table$logDifferenceThreshold[i]),            ",",
-            sanitizeSQLStringInput(table$logDifference[i]),                     ",",
-            sanitizeSQLStringInput(table$logPercentageDifference[i]),           ",",
-            sanitizeSQLStringInput(table$logTestPassed[i]),                     ",",
-            sanitizeSQLStringInput(table$logComparisonMetric[i]),               ",",
-            sanitizeSQLStringInput(table$logComparisonMetricKey[i]),            ",",
-            sanitizeSQLStringInput(table$logSQLComparisonMetricValue[i]),       ",",
-            sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),
-          ')',
-          sep=""
+                                    '(',
+                                    sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
+                                    sanitizeSQLStringInput(table$logDateId[i]),                         ",",
+                                    sanitizeSQLStringInput(table$logProgramme[i]),                      ",",
+                                    sanitizeSQLStringInput(table$logTestName[i]),                       ",",
+                                    sanitizeSQLStringInput(table$logPercentageDifferenceThreshold[i]),  ",",
+                                    sanitizeSQLStringInput(table$logDifferenceThreshold[i]),            ",",
+                                    sanitizeSQLStringInput(table$logDifference[i]),                     ",",
+                                    sanitizeSQLStringInput(table$logPercentageDifference[i]),           ",",
+                                    sanitizeSQLStringInput(table$logTestPassed[i]),                     ",",
+                                    sanitizeSQLStringInput(table$logComparisonMetric[i]),               ",",
+                                    sanitizeSQLStringInput(table$logComparisonMetricKey[i]),            ",",
+                                    sanitizeSQLStringInput(table$logSQLComparisonMetricValue[i]),       ",",
+                                    sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),
+                                    ')',
+                                    sep=""
         )
       }
-
+      
       sqlQuery(dbconn, insertIntoStatment)
       # print(insertIntoStatment)
-
+      
       if(lastRow > insertRowLimit + positionindex-1) {
         sqlBatchInsertResults(dbconn, table, tablename, insertRowLimit + positionindex)
       }
@@ -241,7 +241,7 @@ sqlwriteTestResult <- function(
   comparisonMetric,
   result
 ) {
-
+  
   if( ! is.data.table(result) ) {
     
     logToFile(programme, testName, 'Error', 'Writing Error: Output is not in data.table format - check package run through with input data')
@@ -252,9 +252,9 @@ sqlwriteTestResult <- function(
     tablename <- outputFileName
     dateTime <- format(runStartTime,"%Y-%m-%d %H:%M:%OS")
     logdateid <- format(runStartTime,"%Y%m%d")
-
+    
     # temptablename <- paste('#TMPHubby',format(runStartTime, "%Y%m%d%H%M%OS"), sep="")
-
+    
     # add static row values
     result[,'logTestDateTime' := dateTime]
     result[,'logDateId' := logdateid]
@@ -263,17 +263,17 @@ sqlwriteTestResult <- function(
     result[,'logDifferenceThreshold' := threshold]
     result[,'logPercentageDifferenceThreshold' := minimumThreshold]
     result[,'logComparisonMetric' := comparisonMetric]
-
+    
     # change names to match the SQL columns
     colnames(result)[which(colnames(result) == 'Percentage Difference')] <- "logPercentageDifference"
     colnames(result)[which(colnames(result) == 'Difference')] <- "logDifference"
     colnames(result)[which(colnames(result) == 'Test Passed?')] <- "logTestPassed"
     colnames(result)[which(colnames(result) == "Comparison Metric Key")] <- "logComparisonMetricKey"
-
+    
     # looks like these are labelled in reverse within the DB.
     colnames(result)[which(colnames(result) == "Hub Comparison Metric Value")] <- "logSourceComparisonMetricValue"
     colnames(result)[which(colnames(result) == "Source Comparison Metric Value")] <- "logSQLComparisonMetricValue"
-
+    
     # output column order
     testcols <- c(
       "logTestDateTime",
@@ -290,22 +290,22 @@ sqlwriteTestResult <- function(
       "logSQLComparisonMetricValue",
       "logSourceComparisonMetricValue"
     )
-
+    
     # remove uneeded columns
     result <- result[,..testcols]
-
+    
     # open up the db connection
     db <- odbcDriverConnect(paste("driver={SQL Server};", connectionString, sep=""))
     
     # shove the test data on the end of the table
     #    sqlSave(db, result, tablename=tablename, rownames=FALSE, append=TRUE, safer=TRUE, test=TRUE, verbose=TRUE)
     sqlBatchInsertResults( db, result, tablename)
-
+    
     # close up the connection
     odbcClose( db )
-
+    
   }
-
+  
   return( 'SUCCESS' )
 }
 
@@ -549,11 +549,11 @@ getCSVFile <- function(filepath, skip=FALSE, header=FALSE) {
       colnames <- c(colnames, paste("V", i+1,sep=""))
     }
   }
-
+  
   csvData <- read.csv(filepath,stringsAsFactors=FALSE,header=FALSE,skip=skip,fill=TRUE,col.names=colnames)
-
+  
   # Strip out the utf-8 BOM
-  csvData[1,1] <- gsub("^\\ï\\»\\¿", "", csvData[1,1])
+  csvData[1,1] <- gsub("^\\�\\�\\�", "", csvData[1,1])
   
   return( csvData )
   
@@ -696,10 +696,10 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     
     #removeHeaderRow <- TRUE
   } else if( grepl('\\.csv$',filename) & any(rowBeforeHeader > 1) & any(skipRows == FALSE)) {
-
+    
     headerRow <- rowBeforeHeader + 1
     endRow <- endRow + rowBeforeHeader
-
+    
   }
   
   
@@ -1089,9 +1089,9 @@ testDatas <- function(
   
   if(!(comparisonMetric %in% colnames(sourceData))) {
     logToFile(programme,testName, "Error","Initialisation Error: comparison column not found in source data file.")
-
+    
     # print(head(sourceData))
-
+    
     return(  )
   }
   if(!(comparisonMetric %in% colnames(hubData))) {
@@ -1156,6 +1156,12 @@ testDatas <- function(
   
   # work out diff as percentage
   sourceData$PercentageDiff <- (sourceData$ValueDiff/sourceData[[paste("i.",comparisonMetric,sep="")]] )*100
+  # set any NaN to 0
+  sourceData$PercentageDiff[is.nan(sourceData$PercentageDiff)] <- 0
+  
+  # round values
+  sourceData$ValueDiff <- round(sourceData$ValueDiff, 4)
+  sourceData$PercentageDiff <- round(sourceData$PercentageDiff,2)
   
   # change column names to Hub Comparison Metric Value and Source Comparison Metric Value
   colnames(sourceData)[which(colnames(sourceData) == comparisonMetric)] <- "Hub Comparison Metric Value"
@@ -1168,13 +1174,13 @@ testDatas <- function(
   sourceData[,PercentageDiffPass:= !( (PercentageDiff > threshold & ValueDiff > minimumThreshold) | (PercentageDiff < (threshold*-1) & ValueDiff < (-1*minimumThreshold)) )]
   
   # Cast Boolean column to character so we can add "IGNORED" values
-  sourceData$PercentageDiffPass <- as.character(sourceData[,PercentageDiffPass])
+  sourceData$PercentageDiffPass <- as.numeric(sourceData[,PercentageDiffPass])
   
-  # Set ignored values to IGNORED instead of TRUE/FALSE.  
+  # Set ignored values to IGNORED instead of TRUE/FALSE. 2 = INGORED  
   if(!any(is.na(ignoredValues))) {
     for(i in 1:nrow(sourceData)) {
       if(length(intersect(ignoredValues, as.matrix(sourceData[i,..nonComparisonCols]))) > 0) {
-        sourceData[i,PercentageDiffPass := 'IGNORED']
+        sourceData[i,PercentageDiffPass := '2']
       }
     }
   }
@@ -1196,10 +1202,10 @@ testDatas <- function(
   
   
   if(outputType == 'File') {
-
+    
     # log a complete message
     logToFile(programme,testName, "Success","Test Completed - writing to file...")
-
+    
     # write test result to output file
     writeResultStatus <- writeTestResult(
       programme,
@@ -1210,11 +1216,11 @@ testDatas <- function(
       sourceData
     )
   } else if (outputType == 'SQL') {
-
-
+    
+    
     # log a complete message
     logToFile(programme,testName, "Success","Test Completed - inserting into SQL table")
-
+    
     # write test result to output file
     writeResultStatus <- sqlwriteTestResult(
       programme,
@@ -1225,7 +1231,7 @@ testDatas <- function(
       sourceData
     )
   } else {
-
+    
     # log a complete message
     logToFile(programme,testName, "Error",'Could not write results, unrecognised output type. Ensure the value is either "File" or "SQL"')
   }
@@ -1363,12 +1369,12 @@ runTestsFromDefinitionSheet <- function() {
   # read all the tests from the Excel Sheet
   text22 <- rep("text",22)
   testList <- read_excel(testsFile, col_types=text22, na="", skip=29, col_names=FALSE, sheet=1)
-
+  
   globalArguments <- tryCatch({
     suppressWarnings(read_excel(testsFile, na="", skip=8, col_names=FALSE, sheet=2)[3])
   }, error=function(err) {
   });
-
+  
   if(!is.null(globalArguments) & nrow(globalArguments) > 0) {  #runtime specifics
     if(globalArguments[1,1] == "1") {
       verbose <<- 1
@@ -1384,7 +1390,7 @@ runTestsFromDefinitionSheet <- function() {
     if(!is.na(globalArguments[5,1]) & !identical(globalArguments[5,1],'')) {
       tempFilesPath <<- appendForwardSlash(as.character(globalArguments[5,1]))
     }
-
+    
     #Output param specifics
     if(!is.na(globalArguments[7,1]) & !identical(globalArguments[7,1],'')) {
       outputType <<- as.character(globalArguments[7,1])
@@ -1407,9 +1413,9 @@ runTestsFromDefinitionSheet <- function() {
     lastRow <- nrow(testList)
   }
   
-
-
-
+  
+  
+  
   # TODO: Try catches around this!
   for(i in 1:lastRow) {
     
@@ -1485,43 +1491,40 @@ cmdargs <- commandArgs(trailingOnly=TRUE)
 
 # switch to verbose output if v is passed in the runtime args
 if(length(cmdargs) > 0){
-
+  
   formattedArgs <- pivotParamList(cmdargs)
-
-
-
+  
   if( any(grep('-\\w*v', cmdargs[1])) ) {
     verbose <<- 1
   }
-
-
+  
+  
   # set global params if they are included as arguments
-  if("DefaultSQLPath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultSQLPath"],'')) {
+  if("DefaultSQLPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultSQLPath"],'')) {
     sqlPath <<- appendForwardSlash(as.character(formattedArgs["DefaultSQLPath"]))
   }
-  if("DefaultLogFilePath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultLogFilePath"], '')) {
+  if("DefaultLogFilePath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultLogFilePath"], '')) {
     logFilePath <<- appendForwardSlash(as.character(formattedArgs["DefaultLogFilePath"]))
   }
-  if("DefaultTempFilesPath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultTempFilesPath"], '')) {
+  if("DefaultTempFilesPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultTempFilesPath"], '')) {
     tempFilesPath <<- appendForwardSlash(as.character(formattedArgs["DefaultTempFilesPath"]))
-
+    
   }
-
+  
   # set output parameters
-  if("OutputType" %in% names(formattedArgs) & !identical(formattedArgs["OutputType"], '')) {
+  if("OutputType" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputType"], '')) {
     outputType <<- as.character(formattedArgs["OutputType"])
   }
-  if("OutputPath" %in% names(formattedArgs) & !identical(formattedArgs["OutputPath"], '')) {
+  if("OutputPath" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputPath"], '')) {
     outputPath <<- as.character(formattedArgs["OutputPath"])
     if(!any(grep('database=', outputPath)) & !strEndsWith(outputPath, '/')) {
       outputPath <<- appendForwardSlash(outputPath)
     }
   }
-  if("OutputFileName" %in% names(formattedArgs) & !identical(formattedArgs["OutputFileName"], '')) {
+  if("OutputFileName" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputFileName"], '')) {
     outputFileName <<- as.character(formattedArgs["OutputFileName"])
   }
-
-
+  
   # if there are any and the first one is -r then run a single test
   if (any(grep('-\\w*r', cmdargs[1]))) {
     # the -r param tells the script to run as a one off with the rest of the params as
@@ -1557,7 +1560,7 @@ if(length(cmdargs) > 0){
         HubHeaderValues=formattedArgs["HubDataHeaderValues"]
       )
     }
- } 
+  } 
 } else {
   
   # Run it!
@@ -1575,4 +1578,3 @@ if(length(cleanupList) > 0) {
     }
   }
 }
-
