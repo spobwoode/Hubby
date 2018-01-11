@@ -1180,7 +1180,7 @@ testDatas <- function(
   if(!any(is.na(ignoredValues))) {
     for(i in 1:nrow(sourceData)) {
       if(length(intersect(ignoredValues, as.matrix(sourceData[i,..nonComparisonCols]))) > 0) {
-        sourceData[i,PercentageDiffPass := '2']
+        sourceData[i,PercentageDiffPass := 2]
       }
     }
   }
