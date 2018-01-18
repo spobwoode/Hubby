@@ -13,7 +13,7 @@
 
 
 # this is the filepath where i have been building all the tests
-currentPath <- 'C:/Users/thomas.hamblin/Documents/Hubby' # 'C:/HiltonGuestShare/Hubby' # 
+currentPath <- 'C:/HiltonGuestShare/Hubby' # 
 #currentPath <- getwd()
 
 # empty list of temp files - this will be filled as the tests are run,
@@ -698,8 +698,6 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   
 
 
-  print(tail(localData[]))
-  
   if(is.character(endRow) & endRow == 'FIRSTBLANKCELL') {
     endRowNumber <- which(localData[,1] == '') -1
     # didn't find an empty cell, or the empty cells found are before the identified headerRow
