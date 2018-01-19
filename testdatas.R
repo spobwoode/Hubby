@@ -3,7 +3,7 @@
 #
 # If thats not the case then hit File -> Reopen With Encoding...  and select UTF-8
 #
-# ï»¿   <--- this should appear as an i with two dots, two small >'s and an upside down question mark :)
+# ﻿   <--- this should appear as an i with two dots, two small >'s and an upside down question mark :)
 #######
 
 
@@ -22,7 +22,7 @@ tempFiles <- list()
 cleanupList <- list()
 
 # this is the filepath to the test definitions
-testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
+testsFile <- paste(currentPath, '/SourceVHubDataTests_newDec17.xlsx', sep="")
 
 ##########
 #### ALL OF THE BELOW CAN NOW BE OVERRIDDEN IN THE TEST SHEET OR IN CMD LINE PARAMS
@@ -192,7 +192,9 @@ sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, ins
         'logComparisonMetric, ',
         'logComparisonMetricKey, ',
         'logSQLComparisonMetricValue, ',
-        'logSourceComparisonMetricValue ',
+        'logSourceComparisonMetricValue, ',
+        'logHubFilePath,',
+        'logSourceFilePath',
         ') Values ',
         sep=""
       )
@@ -202,22 +204,24 @@ sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, ins
           insertIntoStatment <- paste(insertIntoStatment, ', ', sep="")
         }
         insertIntoStatment <- paste(insertIntoStatment,
-          '(',
-          sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
-          sanitizeSQLStringInput(table$logDateId[i]),                         ",",
-          sanitizeSQLStringInput(table$logProgramme[i]),                      ",",
-          sanitizeSQLStringInput(table$logTestName[i]),                       ",",
-          sanitizeSQLStringInput(table$logPercentageDifferenceThreshold[i]),  ",",
-          sanitizeSQLStringInput(table$logDifferenceThreshold[i]),            ",",
-          sanitizeSQLStringInput(table$logDifference[i]),                     ",",
-          sanitizeSQLStringInput(table$logPercentageDifference[i]),           ",",
-          sanitizeSQLStringInput(table$logTestPassed[i]),                     ",",
-          sanitizeSQLStringInput(table$logComparisonMetric[i]),               ",",
-          sanitizeSQLStringInput(table$logComparisonMetricKey[i]),            ",",
-          sanitizeSQLStringInput(table$logSQLComparisonMetricValue[i]),       ",",
-          sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),
-          ')',
-          sep=""
+                                    '(',
+                                    sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
+                                    sanitizeSQLStringInput(table$logDateId[i]),                         ",",
+                                    sanitizeSQLStringInput(table$logProgramme[i]),                      ",",
+                                    sanitizeSQLStringInput(table$logTestName[i]),                       ",",
+                                    sanitizeSQLStringInput(table$logPercentageDifferenceThreshold[i]),  ",",
+                                    sanitizeSQLStringInput(table$logDifferenceThreshold[i]),            ",",
+                                    sanitizeSQLStringInput(table$logDifference[i]),                     ",",
+                                    sanitizeSQLStringInput(table$logPercentageDifference[i]),           ",",
+                                    sanitizeSQLStringInput(table$logTestPassed[i]),                     ",",
+                                    sanitizeSQLStringInput(table$logComparisonMetric[i]),               ",",
+                                    sanitizeSQLStringInput(table$logComparisonMetricKey[i]),            ",",
+                                    sanitizeSQLStringInput(table$logSQLComparisonMetricValue[i]),       ",",
+                                    sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),    ",",
+                                    sanitizeSQLStringInput(table$logHubFilePath[i]),                    ",",
+                                    sanitizeSQLStringInput(table$logSourceFilePath[i]),               
+                                    ')',
+                                    sep=""
         )
       }
       
@@ -239,7 +243,9 @@ sqlwriteTestResult <- function(
   threshold,
   minimumThreshold,
   comparisonMetric,
-  result
+  result,
+  sourceFilePath,
+  hubFilePath
 ) {
   
   if( ! is.data.table(result) ) {
@@ -263,6 +269,8 @@ sqlwriteTestResult <- function(
     result[,'logDifferenceThreshold' := threshold]
     result[,'logPercentageDifferenceThreshold' := minimumThreshold]
     result[,'logComparisonMetric' := comparisonMetric]
+    result[,'logSourceFilePath' := sourceFilePath]
+    result[,'logHubFilePath' := hubFilePath]
     
     # change names to match the SQL columns
     colnames(result)[which(colnames(result) == 'Percentage Difference')] <- "logPercentageDifference"
@@ -288,7 +296,9 @@ sqlwriteTestResult <- function(
       "logComparisonMetric",
       "logComparisonMetricKey",
       "logSQLComparisonMetricValue",
-      "logSourceComparisonMetricValue"
+      "logSourceComparisonMetricValue",
+      "logSourceFilePath",
+      "logHubFilePath"
     )
     
     # remove uneeded columns
@@ -533,14 +543,14 @@ getExcelFile <- function(filepath, skip=0, castDates=FALSE, headerValues=FALSE,s
 
 
 
-getCSVFile <- function(filepath, skip=FALSE, header=FALSE, sep=",") {
+getCSVFile <- function(filepath, skip=FALSE, header=FALSE) {
   
   #read csv data file
   #return( read.csv(filepath,stringsAsFactors=FALSE,header=header,skip=skip,fill=TRUE) )
   
   #readlines
   lines <- readLines(filepath,n=30)
-  maxColumns <- max(str_count(lines,sep))
+  maxColumns <- max(str_count(lines,","))
   
   colnames <- c("V1")
   
@@ -550,10 +560,10 @@ getCSVFile <- function(filepath, skip=FALSE, header=FALSE, sep=",") {
     }
   }
   
-  csvData <- read.csv(filepath,stringsAsFactors=FALSE,header=FALSE,skip=skip,fill=TRUE,col.names=colnames, sep=sep)
+  csvData <- read.csv(filepath,stringsAsFactors=FALSE,header=FALSE,skip=skip,fill=TRUE,col.names=colnames)
   
   # Strip out the utf-8 BOM
-  csvData[1,1] <- gsub("^\\ï\\»\\¿", "", csvData[1,1])
+  csvData[1,1] <- gsub("^\\�\\�\\�", "", csvData[1,1])
   
   return( csvData )
   
@@ -621,11 +631,6 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     #read csv data file, chop off the top of the file if necesary
     localData <- getCSVFile(dataLocation,skip=skipRows,header=headerValues)
     
-  } else if(grepl('\\.tsv$',filename)) {
-    
-    #read tsv data file, chop off the top of the file if necesary
-    localData <- getCSVFile(dataLocation,skip=skipRows,header=headerValues, sep="\t")
-    
   } else if(grepl('\\.xlsx?$',filename)) {
     
     # read excel data file
@@ -647,12 +652,6 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
       endRow <- endRowNumber
     }
   } 
-  # Sepecial case: FIRSTBLANKCELL, choose the first blank cell after the header row.
-  #                relies on the header row being first identified so leave till later
-  else if (endRow == 'FIRSTBLANKCELL') {
-      # all good but we have to wait till the headerRow is determined to assign the end row
-      # because you dont want to crop cells before the header row.
-  } 
   # its a string row identfier instead of a row number
   else {
     endRowNumber <- which(localData[,1] == endRow) -1
@@ -663,8 +662,6 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
       endRow <- endRowNumber
     }
   }
-
-  cropEndRows <- 0
   
   # print(nrow(localData[,1]))
   # print(endRow)
@@ -682,11 +679,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
         return(   )
       } else {
         headerRow <- 1
-        if(!is.character(endRow)) {
-          endRow <- endRow - rowBeforeHeader
-        } else {
-          cropEndRows <- rowBeforeHeader
-        }
+        endRow <- endRow - rowBeforeHeader
       }
     } else {
       rowBeforeHeader <- 0
@@ -696,32 +689,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     headerRow <- ifelse(headerRowNumber > 0, headerRowNumber, 0)
   }
   
-
-
-  if(is.character(endRow) & endRow == 'FIRSTBLANKCELL') {
-    endRowNumber <- which(localData[,1] == '') -1
-    # didn't find an empty cell, or the empty cells found are before the identified headerRow
-    if(length(endRowNumber) == 0 | !any(endRowNumber > headerRow)) {
-      logToFile(programme,testName,"Error",paste(hubOrSource ,' Last Row in document used as the end of data as no blank cells appear in the data.', sep=""))
-      endRow <- nrow(localData[,1])
-      if(is.null(endRow)) {
-        # nrow sometimes returns null occasionally instead of the length.
-        endRow <- length(localData[,1])
-      }
-    }
-    # found the end row identifier and its after the headerRow
-    else {
-      endRow <- endRowNumber[which(endRowNumber > headerRow)][1]
-    }
-
-    # we're going to lose some rows when the file is reimported
-    # so set this to the row it will be after the reimport
-    if(cropEndRows > 0) {
-      endRow <- endRow - cropEndRows
-    }
-  }
-
-
+  
   # validate header/endRow locations (dont want them the wrong way round)
   if(headerRow >= endRow) {
     logToFile(programme,testName,"Error",paste("Initialisation Error: ", hubOrSource ," endRow must be after headerRow",sep=""))
@@ -737,7 +705,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     localData <- suppressWarnings(getExcelFile(dataLocation, skip=skipRows, castDates=TRUE,headerValues=headerValues,sheet=sheet))
     
     #removeHeaderRow <- TRUE
-  } else if( grepl('\\.(c|t)sv$',filename) & any(rowBeforeHeader > 1) & any(skipRows == FALSE)) {
+  } else if( grepl('\\.csv$',filename) & any(rowBeforeHeader > 1) & any(skipRows == FALSE)) {
     
     headerRow <- rowBeforeHeader + 1
     endRow <- endRow + rowBeforeHeader
@@ -771,6 +739,13 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   
   # log filename used
   logToFile(programme,testName, "Processing",paste('Used file ', dataLocation, ' for ',  hubOrSource, ' Data', sep=""))
+  
+  # also return dataLocation for reporting purposes
+  if (hubOrSource == 'Source') {
+    localData$SourcePath <- dataLocation
+  } else if (hubOrSource == 'Hub') {
+    localData$HubPath <- dataLocation
+  }
   
   return( localData )
   
@@ -919,7 +894,8 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
     columnsToIncludeProcessed <- strsplit(columnsToInclude, ",") 
     columnsToIncludeProcessed <-  do.call(rbind, columnsToIncludeProcessed)
     columnsToIncludeProcessed <- suppressWarnings(as.numeric(columnsToIncludeProcessed[1,]))
-    
+    #add last column as it should be the filepath
+    columnsToIncludeProcessed <- append(columnsToIncludeProcessed,ncol(retrievedData))
     
     if(any(is.na(columnsToIncludeProcessed))) {
       logToFile(programme,testName,"Error",paste("Initialisation Error: ", hubOrSource ,"ColumnsToInclude must be column numbers seperated by commas, a value has been used that is not a number: ", columnsToInclude, sep=""))
@@ -1077,6 +1053,9 @@ testDatas <- function(
     return(  )
   }
   
+  # assign source and hub paths
+  sourceFilePath <- sourceData[1,'SourcePath']
+  hubFilePath <- hubData[1,'HubPath']
   
   ## GG we got datas
   
@@ -1085,7 +1064,7 @@ testDatas <- function(
     if(length(sourceData[1,]) > length(hubData[1,])) {
       more <- 'more'
     } else {
-      more <- 'less'
+      more <- 'fewer'
     }
     
     logToFile(programme,testName, "Error",paste("Initialisation Error: Source Data returns ",more,' columns than the Hub Data, please check columns match', sep=""))
@@ -1101,7 +1080,9 @@ testDatas <- function(
   hubData <- data.table(hubData)
   
   
-  
+  # remove path data
+  sourceData$SourcePath <- NULL
+  hubData$HubPath <- NULL
   
   
   #####
@@ -1109,7 +1090,6 @@ testDatas <- function(
   ##   SANITIZE DATA
   ##
   #####
-  
   
   SourceHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
   HubHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
@@ -1144,7 +1124,6 @@ testDatas <- function(
   
   sourceData[[comparisonMetric]] <- suppressWarnings(as.numeric(gsub("[^0-9\\.\\, a-fA-F\\-]","",sourceData[[comparisonMetric]])))
   hubData[[comparisonMetric]] <- suppressWarnings(as.numeric(gsub("[^0-9\\.\\, a-fA-f\\-]","",hubData[[comparisonMetric]])))
-  
   
   # select all columns that are not the comparison column
   nonComparisonCols <- colnames(hubData)[which(colnames(hubData) != comparisonMetric)]
@@ -1270,7 +1249,9 @@ testDatas <- function(
       threshold,
       minimumThreshold,
       comparisonMetric,
-      sourceData
+      sourceData,
+      sourceFilePath,
+      hubFilePath
     )
   } else {
     
@@ -1542,28 +1523,28 @@ if(length(cmdargs) > 0){
   
   
   # set global params if they are included as arguments
-  if("DefaultSQLPath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultSQLPath"],'')) {
+  if("DefaultSQLPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultSQLPath"],'')) {
     sqlPath <<- appendForwardSlash(as.character(formattedArgs["DefaultSQLPath"]))
   }
-  if("DefaultLogFilePath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultLogFilePath"], '')) {
+  if("DefaultLogFilePath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultLogFilePath"], '')) {
     logFilePath <<- appendForwardSlash(as.character(formattedArgs["DefaultLogFilePath"]))
   }
-  if("DefaultTempFilesPath" %in% names(formattedArgs) & !identical(formattedArgs["DefaultTempFilesPath"], '')) {
+  if("DefaultTempFilesPath" %in% colnames(formattedArgs) & !identical(formattedArgs["DefaultTempFilesPath"], '')) {
     tempFilesPath <<- appendForwardSlash(as.character(formattedArgs["DefaultTempFilesPath"]))
     
   }
   
   # set output parameters
-  if("OutputType" %in% names(formattedArgs) & !identical(formattedArgs["OutputType"], '')) {
+  if("OutputType" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputType"], '')) {
     outputType <<- as.character(formattedArgs["OutputType"])
   }
-  if("OutputPath" %in% names(formattedArgs) & !identical(formattedArgs["OutputPath"], '')) {
+  if("OutputPath" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputPath"], '')) {
     outputPath <<- as.character(formattedArgs["OutputPath"])
     if(!any(grep('database=', outputPath)) & !strEndsWith(outputPath, '/')) {
       outputPath <<- appendForwardSlash(outputPath)
     }
   }
-  if("OutputFileName" %in% names(formattedArgs) & !identical(formattedArgs["OutputFileName"], '')) {
+  if("OutputFileName" %in% colnames(formattedArgs) & !identical(formattedArgs["OutputFileName"], '')) {
     outputFileName <<- as.character(formattedArgs["OutputFileName"])
   }
   
