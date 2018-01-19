@@ -192,7 +192,9 @@ sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, ins
         'logComparisonMetric, ',
         'logComparisonMetricKey, ',
         'logSQLComparisonMetricValue, ',
-        'logSourceComparisonMetricValue ',
+        'logSourceComparisonMetricValue, ',
+        'logHubFilePath,',
+        'logSourceFilePath',
         ') Values ',
         sep=""
       )
@@ -218,6 +220,24 @@ sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, ins
           sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),
           ')',
           sep=""
+                                    '(',
+                                    sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
+                                    sanitizeSQLStringInput(table$logDateId[i]),                         ",",
+                                    sanitizeSQLStringInput(table$logProgramme[i]),                      ",",
+                                    sanitizeSQLStringInput(table$logTestName[i]),                       ",",
+                                    sanitizeSQLStringInput(table$logPercentageDifferenceThreshold[i]),  ",",
+                                    sanitizeSQLStringInput(table$logDifferenceThreshold[i]),            ",",
+                                    sanitizeSQLStringInput(table$logDifference[i]),                     ",",
+                                    sanitizeSQLStringInput(table$logPercentageDifference[i]),           ",",
+                                    sanitizeSQLStringInput(table$logTestPassed[i]),                     ",",
+                                    sanitizeSQLStringInput(table$logComparisonMetric[i]),               ",",
+                                    sanitizeSQLStringInput(table$logComparisonMetricKey[i]),            ",",
+                                    sanitizeSQLStringInput(table$logSQLComparisonMetricValue[i]),       ",",
+                                    sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),    ",",
+                                    sanitizeSQLStringInput(table$logHubFilePath[i]),                    ",",
+                                    sanitizeSQLStringInput(table$logSourceFilePath[i]),               
+                                    ')',
+                                    sep=""
         )
       }
       
@@ -239,7 +259,9 @@ sqlwriteTestResult <- function(
   threshold,
   minimumThreshold,
   comparisonMetric,
-  result
+  result,
+  sourceFilePath,
+  hubFilePath
 ) {
   
   if( ! is.data.table(result) ) {
@@ -263,6 +285,8 @@ sqlwriteTestResult <- function(
     result[,'logDifferenceThreshold' := threshold]
     result[,'logPercentageDifferenceThreshold' := minimumThreshold]
     result[,'logComparisonMetric' := comparisonMetric]
+    result[,'logSourceFilePath' := sourceFilePath]
+    result[,'logHubFilePath' := hubFilePath]
     
     # change names to match the SQL columns
     colnames(result)[which(colnames(result) == 'Percentage Difference')] <- "logPercentageDifference"
@@ -288,7 +312,9 @@ sqlwriteTestResult <- function(
       "logComparisonMetric",
       "logComparisonMetricKey",
       "logSQLComparisonMetricValue",
-      "logSourceComparisonMetricValue"
+      "logSourceComparisonMetricValue",
+      "logSourceFilePath",
+      "logHubFilePath"
     )
     
     # remove uneeded columns
@@ -772,6 +798,13 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   # log filename used
   logToFile(programme,testName, "Processing",paste('Used file ', dataLocation, ' for ',  hubOrSource, ' Data', sep=""))
   
+  # also return dataLocation for reporting purposes
+  if (hubOrSource == 'Source') {
+    localData$SourcePath <- dataLocation
+  } else if (hubOrSource == 'Hub') {
+    localData$HubPath <- dataLocation
+  }
+  
   return( localData )
   
   
@@ -919,7 +952,8 @@ getData <- function( programme, testName, hubOrSource, connectionPathString, fil
     columnsToIncludeProcessed <- strsplit(columnsToInclude, ",") 
     columnsToIncludeProcessed <-  do.call(rbind, columnsToIncludeProcessed)
     columnsToIncludeProcessed <- suppressWarnings(as.numeric(columnsToIncludeProcessed[1,]))
-    
+    #add last column as it should be the filepath
+    columnsToIncludeProcessed <- append(columnsToIncludeProcessed,ncol(retrievedData))
     
     if(any(is.na(columnsToIncludeProcessed))) {
       logToFile(programme,testName,"Error",paste("Initialisation Error: ", hubOrSource ,"ColumnsToInclude must be column numbers seperated by commas, a value has been used that is not a number: ", columnsToInclude, sep=""))
@@ -1077,6 +1111,9 @@ testDatas <- function(
     return(  )
   }
   
+  # assign source and hub paths
+  sourceFilePath <- sourceData[1,'SourcePath']
+  hubFilePath <- hubData[1,'HubPath']
   
   ## GG we got datas
   
@@ -1085,7 +1122,7 @@ testDatas <- function(
     if(length(sourceData[1,]) > length(hubData[1,])) {
       more <- 'more'
     } else {
-      more <- 'less'
+      more <- 'fewer'
     }
     
     logToFile(programme,testName, "Error",paste("Initialisation Error: Source Data returns ",more,' columns than the Hub Data, please check columns match', sep=""))
@@ -1101,7 +1138,9 @@ testDatas <- function(
   hubData <- data.table(hubData)
   
   
-  
+  # remove path data
+  sourceData$SourcePath <- NULL
+  hubData$HubPath <- NULL
   
   
   #####
@@ -1109,7 +1148,6 @@ testDatas <- function(
   ##   SANITIZE DATA
   ##
   #####
-  
   
   SourceHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
   HubHeaderValues <- suppressWarnings(as.logical(SourceHeaderValues))
@@ -1144,7 +1182,6 @@ testDatas <- function(
   
   sourceData[[comparisonMetric]] <- suppressWarnings(as.numeric(gsub("[^0-9\\.\\, a-fA-F\\-]","",sourceData[[comparisonMetric]])))
   hubData[[comparisonMetric]] <- suppressWarnings(as.numeric(gsub("[^0-9\\.\\, a-fA-f\\-]","",hubData[[comparisonMetric]])))
-  
   
   # select all columns that are not the comparison column
   nonComparisonCols <- colnames(hubData)[which(colnames(hubData) != comparisonMetric)]
@@ -1270,7 +1307,9 @@ testDatas <- function(
       threshold,
       minimumThreshold,
       comparisonMetric,
-      sourceData
+      sourceData,
+      sourceFilePath,
+      hubFilePath
     )
   } else {
     
