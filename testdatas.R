@@ -22,7 +22,7 @@ tempFiles <- list()
 cleanupList <- list()
 
 # this is the filepath to the test definitions
-testsFile <- paste(currentPath, '/SourceVHubDataTests.xlsx', sep="")
+testsFile <- paste(currentPath, '/SourceVHubDataTests_newDec17.xlsx', sep="")
 
 ##########
 #### ALL OF THE BELOW CAN NOW BE OVERRIDDEN IN THE TEST SHEET OR IN CMD LINE PARAMS
@@ -204,22 +204,6 @@ sqlBatchInsertResults <- function(dbconn, table, tablename, positionindex=1, ins
           insertIntoStatment <- paste(insertIntoStatment, ', ', sep="")
         }
         insertIntoStatment <- paste(insertIntoStatment,
-          '(',
-          sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
-          sanitizeSQLStringInput(table$logDateId[i]),                         ",",
-          sanitizeSQLStringInput(table$logProgramme[i]),                      ",",
-          sanitizeSQLStringInput(table$logTestName[i]),                       ",",
-          sanitizeSQLStringInput(table$logPercentageDifferenceThreshold[i]),  ",",
-          sanitizeSQLStringInput(table$logDifferenceThreshold[i]),            ",",
-          sanitizeSQLStringInput(table$logDifference[i]),                     ",",
-          sanitizeSQLStringInput(table$logPercentageDifference[i]),           ",",
-          sanitizeSQLStringInput(table$logTestPassed[i]),                     ",",
-          sanitizeSQLStringInput(table$logComparisonMetric[i]),               ",",
-          sanitizeSQLStringInput(table$logComparisonMetricKey[i]),            ",",
-          sanitizeSQLStringInput(table$logSQLComparisonMetricValue[i]),       ",",
-          sanitizeSQLStringInput(table$logSourceComparisonMetricValue[i]),
-          ')',
-          sep=""
                                     '(',
                                     sanitizeSQLStringInput(table$logTestDateTime[i]),                   ",",
                                     sanitizeSQLStringInput(table$logDateId[i]),                         ",",
@@ -676,8 +660,8 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
   # Sepecial case: FIRSTBLANKCELL, choose the first blank cell after the header row.
   #                relies on the header row being first identified so leave till later
   else if (endRow == 'FIRSTBLANKCELL') {
-      # all good but we have to wait till the headerRow is determined to assign the end row
-      # because you dont want to crop cells before the header row.
+    # all good but we have to wait till the headerRow is determined to assign the end row
+    # because you dont want to crop cells before the header row.
   } 
   # its a string row identfier instead of a row number
   else {
@@ -689,7 +673,7 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
       endRow <- endRowNumber
     }
   }
-
+  
   cropEndRows <- 0
   
   # print(nrow(localData[,1]))
@@ -722,8 +706,8 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     headerRow <- ifelse(headerRowNumber > 0, headerRowNumber, 0)
   }
   
-
-
+  
+  
   if(is.character(endRow) & endRow == 'FIRSTBLANKCELL') {
     endRowNumber <- which(localData[,1] == '') -1
     # didn't find an empty cell, or the empty cells found are before the identified headerRow
@@ -739,15 +723,15 @@ getLocalData <- function(programme, testName, hubOrSource, filepath, filename, h
     else {
       endRow <- endRowNumber[which(endRowNumber > headerRow)][1]
     }
-
+    
     # we're going to lose some rows when the file is reimported
     # so set this to the row it will be after the reimport
     if(cropEndRows > 0) {
       endRow <- endRow - cropEndRows
     }
   }
-
-
+  
+  
   # validate header/endRow locations (dont want them the wrong way round)
   if(headerRow >= endRow) {
     logToFile(programme,testName,"Error",paste("Initialisation Error: ", hubOrSource ," endRow must be after headerRow",sep=""))
