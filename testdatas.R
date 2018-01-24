@@ -1351,6 +1351,64 @@ formatIgnoredValues <- function(valueString) {
 }
 
 
+expandRange <- function(rangeString) {
+    range = str_match(rangeString, '^(\\d+)-(\\d+)$')
+
+    if(!all(is.na(range))) {
+      lower <- range[,2]
+      upper <- range[,3]
+
+      return(as.character(rep(lower:upper)))
+    } else {
+      return ( rangeString );
+    }
+}
+
+testScheduleMarkup <- function(schedule, testValue) {
+  # e.g passed 1,2,3,4 or 8-10 or * or any combination thereof
+  if(any(grepl('\\*', schedule))) {
+    return( TRUE )
+  } else {
+    # split on the commas
+    schedule <- strsplit(as.character(schedule), ",") 
+    schedule <-  do.call(rbind, schedule)
+
+    # now expand out the ranges
+    schedule <- sapply(schedule, expandRange)
+
+    schedule <- unlist(schedule)
+
+    return( any(schedule == testValue) )
+  }
+}
+
+testSchedule <- function(schedule) {
+    schedule <- str_match(schedule, '^SCHEDULE\\(([^\\)]+)\\)$')
+
+    if(length(schedule) != 2) {
+      return( )
+    }
+
+    schedule <- str_replace_all(schedule,c("JAN"="1","FEB"="2","MAR"="3","APR"="4","MAY"="5","JUN"="6","JUL"="7","AUG"="8","SEP"="9","OCT"="10","NOV"="11","DEC"="12","MON"="1","TUE"="2","WED"="3","THU"="4","FRI"="5","SAT"="6","SUN"="0"))
+
+    schedules <- strsplit(as.character(schedule), " ") 
+    schedules <-  do.call(rbind, schedules)
+
+    if(length(schedules) < 3) {
+      return( )
+    }
+
+    now <- as.POSIXlt(runStartTime)
+
+    date_pass = testScheduleMarkup(schedules[,1],now$mday)
+    month_pass = testScheduleMarkup(schedules[,2],now$mon + 1)
+    dow_pass = testScheduleMarkup(schedules[,3],now$wday)
+    #year_pass = testScheduleMarkup(schedules[,4],now$year + 1900)
+
+    return( date_pass & month_pass & dow_pass ) # & year_pass )
+}
+
+
 
 runSingleTest <- function(programme, testName, comparisonMetric, threshold, minimumThreshold, ignoredValues, expectedDateFormats, SourceDataPath, SourceDataFileName, SourceHeaderRow, SourceEndRow, SourceColumnsToInclude, SourceHeaderValues, SourceSheet, HubDataPath, HubDataFileName, HubHeaderRow, HubEndRow, HubColumnsToInclude, HubHeaderValues, HubSheet) {
   
@@ -1484,6 +1542,18 @@ runTestsFromDefinitionSheet <- function() {
   # TODO: Try catches around this!
   for(i in 1:lastRow) {
     
+    if(any(grepl('^SCHEDULE\\([^\\)]+\\)$', testList[i,1]))) {
+        scheduled <- testSchedule(testList[i,1])
+        print(testList[i,1])
+        print(scheduled)
+
+        if(is.null(scheduled) ) {
+            logToFile(testList[i,2],testList[i,3], "Error", paste("Check Schedule is formatted correctly.", sep="") )
+        } else if(scheduled == TRUE) {
+            testList[i,1] <- 'Enabled'
+        }
+        # else test does not meet schedule - so its skipped
+    }
     
     if(testList[i,1] == 'Enabled') {
       runSingleTest(
@@ -1512,7 +1582,7 @@ runTestsFromDefinitionSheet <- function() {
         HubHeaderValues=testList[i,22]
       )
     } else if (is.character(testList[i,1]) & testList[i,1] == 'Example') {
-      logToFile(testList[i,1],testList[i,3], "Skipped", paste("this line in the tests file is an example and will not be run.", sep="") )
+      logToFile(testList[i,2],testList[i,3], "Skipped", paste("this line in the tests file is an example and will not be run.", sep="") )
     } else {
       logToFile(testList[i,2],testList[i,3], "Skipped","Test is not Enabled")
       if(verbose) {
